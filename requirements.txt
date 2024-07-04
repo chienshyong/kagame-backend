@@ -1,2 +1,9 @@
 fastapi
 uvicorn
+pymongo
+fashion-clip
+pandas
+numpy
+pillow
+IPython
+tqdm
