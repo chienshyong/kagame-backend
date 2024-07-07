@@ -13,14 +13,17 @@ import PIL
 from tqdm import tqdm
 from pymongo.errors import DuplicateKeyError
 
+from keys.mongodb import CONNECTION_STRING
+
+DATABASE_NAME = "kagame"
+COLLECTION_NAME = "catalogue"
+
 # Connect to the MongoDB server running on localhost and the default port 27017
-client = MongoClient('mongo', 27017)
-db = client.KagameDB
-collection = db.catalogue
+client = MongoClient(CONNECTION_STRING)
+db = client.get_database(DATABASE_NAME)
+collection = db.get_collection(COLLECTION_NAME)
 
 fclip = FashionCLIP('fashion-clip')
-
-#Add all placeholder images to DB
 
 # Specify the directory path
 folder_path = './images'
@@ -37,9 +40,18 @@ image_embeddings = fclip.encode_images(images, batch_size=32)
 image_embeddings = image_embeddings/np.linalg.norm(image_embeddings, ord=2, axis=-1, keepdims=True)
 
 for i in tqdm(range(len(filenames))):
+    
+    # If a document with this image path exist already, skip.
+    if collection.find_one({"image_path": filenames[i]}):
+        continue
+    
+    with open(f"./images/{filenames[i]}", "rb") as image_file:
+        image_binary = image_file.read()
+    
     document = {
         "image_path": filenames[i],
         "retailer": "placeholder",
+        "image_data": image_binary,
         "embedding": image_embeddings[i].tolist()
     }
 
