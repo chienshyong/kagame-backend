@@ -1,21 +1,18 @@
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 import kagameDB
-import json
-import os
 
 #Run with: uvicorn main:app --reload
 app = FastAPI()
-IMAGE_DIR = './images'
 
 @app.get("/")
-def read_root():
+def hello():
     return {"message": "Hello, World!"}
 
 @app.get("/images")
-def read_root():
+def get_images():
     # Find all documents in the collection
-    cursor = kagameDB.catalogue.find()
+    cursor = kagameDB.catalogue.find({}, {"_id": 1, "image_path": 1, "retailer": 1})
 
     response = []
     for document in cursor:
@@ -23,14 +20,11 @@ def read_root():
 
     return response
 
-@app.get("/images/{image_name}")
-def get_image(image_name: str):
-    # Construct the full image path
-    image_path = os.path.join(IMAGE_DIR, image_name)
-    
-    # Check if the image exists
-    if not os.path.isfile(image_path):
-        return {"error": "Image not found"}
-    
-    # Return the image file
-    return FileResponse(image_path)
+@app.get("/images/{image_path}")
+def get_image(image_path: str):
+    image = kagameDB.get_image(image_path)
+
+    if image != None:
+        return StreamingResponse(image)
+    else:
+        raise HTTPException(status_code=404, detail="Image not found")

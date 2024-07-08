@@ -1,1 +1,0 @@
-CONNECTION_STRING = "mongodb+srv://kagameteam:<password>@<cluster_name>/"
