@@ -5,7 +5,8 @@ WORKDIR /app
 # Install gcc, g++, and other necessary build dependencies
 RUN apt-get update && \
     apt-get install -y gcc g++ && \
-    apt-get clean
+    apt-get clean && \
+    apt-get install net-tools
 
 COPY requirements.txt .
 
