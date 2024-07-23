@@ -1,8 +1,11 @@
 # Kagame Backend
 Reflect your style
 
+## Routes
+Include all routes in the `/routes` folder, separated by functionality. `auth.py` is included in `/routes` to use for protecting endpoints.
+
 ## MongoDB connection
-`./keys/` folder contains connection strings / api keys / secrets. Replace the placeholder values with the key given in the group chat. For security NEVER push the API key to github even if it's a private repository. 
+`./keys/` folder contains connection strings / api keys / secrets. Replace the placeholder values with the key given in the group chat. For security NEVER push the API key to github even if it's a private repository. Prevent committing the keys to the repo by running `git update-index --assume-unchanged ./keys/secrets.py` for each file.
 
 `kagameDB.py` connects to the database, and can be used from anywhere by importing it.
 

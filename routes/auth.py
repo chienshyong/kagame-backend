@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 import jwt
 from fastapi.security import OAuth2PasswordBearer
+import keys.secrets
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-SECRET_KEY = "iBet_jordanWill_neverRead_thiS" # Replace this later
+SECRET_KEY = keys.secrets.JWT_SECRET_KEY
 ALGORITHM = "HS256"
 
 class User(BaseModel):
