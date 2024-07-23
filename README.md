@@ -2,13 +2,15 @@
 Reflect your style
 
 ## MongoDB connection
-`./keys/` folder contains connection strings / api keys. Replace the placeholder values with the key given in the group chat. For security NEVER push the API key to github even if it's a private repository. 
+`./keys/` folder contains connection strings / api keys / secrets. Replace the placeholder values with the key given in the group chat. For security NEVER push the API key to github even if it's a private repository. 
+
+`kagameDB.py` connects to the database, and can be used from anywhere by importing it.
 
 ## Building and running
 Run for development with:
 - `uvicorn main:app --reload`
 
-Build docker image with:
+Deployment to runpod - Build docker image with:
 - `docker build -t kagame-backend .`
 - `docker run -d -p 80:80 kagame-backend`
 

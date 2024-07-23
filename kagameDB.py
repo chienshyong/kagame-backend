@@ -1,7 +1,6 @@
 from pymongo import MongoClient
 import keys.mongodb
 from PIL import Image
-import base64
 import io
 
 # If connection fail, ensure IP address is whitelisted on Atlas
@@ -17,6 +16,7 @@ except Exception as e:
     
 db = client.kagame
 catalogue = db.catalogue
+users = db.users
 
 #Get an image from the DB
 def get_image(image_path):
