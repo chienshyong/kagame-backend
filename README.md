@@ -10,6 +10,9 @@ Include all routes in the `/routes` folder, separated by functionality. `auth.py
 `kagameDB.py` connects to the database, and can be used from anywhere by importing it.
 
 ## Building and running
+Install requirements with:
+- `pip install -r "requirements.txt"`
+  
 Run for development with:
 - `uvicorn main:app --reload`
 
