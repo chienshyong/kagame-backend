@@ -24,7 +24,7 @@ async def login(user: User):
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token}
 
-#Example of a protected route
+#Example of a protected route. returns the user's username
 #Requires header 'Authorization' : 'Bearer <token>'
 @router.get("/username")
 async def login(current_user: dict = Depends(get_current_user)):
