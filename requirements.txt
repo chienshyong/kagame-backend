@@ -8,3 +8,4 @@ pillow
 IPython
 tqdm
 passlib
+bcrypt

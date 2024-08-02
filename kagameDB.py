@@ -1,10 +1,10 @@
 from pymongo import MongoClient
-import keys.mongodb
+import keys
 from PIL import Image
 import io
 
 # If connection fail, ensure IP address is whitelisted on Atlas
-client = MongoClient(keys.mongodb.CONNECTION_STRING)
+client = MongoClient(keys.CONNECTION_STRING)
 
 try:
     server_info = client.server_info()
@@ -17,6 +17,7 @@ except Exception as e:
 db = client.kagame
 catalogue = db.catalogue
 users = db.users
+wardrobe = db.wardrobe
 
 #Get an image from the DB
 def get_image(image_path):
