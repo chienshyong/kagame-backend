@@ -3,3 +3,4 @@ keys/
 mongodb/
 
 keys\ copy.py
+.venv
