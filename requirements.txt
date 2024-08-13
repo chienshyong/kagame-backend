@@ -11,5 +11,5 @@ passlib
 bcrypt
 jupyter
 rembg
-jwt
+pyjwt
 python-multipart
