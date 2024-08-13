@@ -13,9 +13,15 @@ Include all routes in the `/routes` folder, separated by functionality. Include 
 Store and get images with `services/image.py`. For now, it converts the image into binary data that can be stored in mongo. When we change to a file system just need to change this service.
 
 ## Building and running
-Install requirements with:
-- `pip install -r "requirements.txt"`
+Use virtual environment to install requirements with:
+- `python3 -m venv .venv`
+- `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Unix/maxOS)
+- `pip install -r "requirements.txt"` (Be patient, it'll take some time)
   
+Keys:
+- Make a copy of keys-example.py and rename it to keys.py
+- Put our API keys there. If everything goes right, changes should be ignored so keys.py is never pushed 
+
 Run for development with:
 - `uvicorn main:app --reload`
 
@@ -28,5 +34,6 @@ Push to docker hub:
 - Password: see in chat
 - `docker tag kagame-backend kagameteam/kagame-backend:latest`
 - `docker push kagameteam/kagame-backend:latest`
+
 
 Use kagameteam/kagame-backend as the image on the runpod container.

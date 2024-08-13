@@ -9,3 +9,7 @@ IPython
 tqdm
 passlib
 bcrypt
+jupyter
+rembg
+pyjwt
+python-multipart
