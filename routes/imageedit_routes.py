@@ -7,7 +7,7 @@ from services.remove_bg import remove_bg
 router = APIRouter()
 
 '''
-GET /image-edit/remove-bg -> Removes background from the image. Output is less reliable with multiple images
+POST /image-edit/remove-bg -> Removes background from the image. Output is less reliable with multiple images
 '''
 
 @router.post("/image-edit/remove-bg")
