@@ -11,3 +11,5 @@ passlib
 bcrypt
 jupyter
 rembg
+jwt
+python-multipart

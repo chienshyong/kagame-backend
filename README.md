@@ -18,6 +18,10 @@ Use virtual environment to install requirements with:
 - `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Unix/maxOS)
 - `pip install -r "requirements.txt"` (Be patient, it'll take some time)
   
+Keys:
+- Make a copy of keys-example.py and rename it to keys.py
+- Put our API keys there. If everything goes right, changes should be ignored so keys.py is never pushed 
+
 Run for development with:
 - `uvicorn main:app --reload`
 
@@ -30,5 +34,6 @@ Push to docker hub:
 - Password: see in chat
 - `docker tag kagame-backend kagameteam/kagame-backend:latest`
 - `docker push kagameteam/kagame-backend:latest`
+
 
 Use kagameteam/kagame-backend as the image on the runpod container.
