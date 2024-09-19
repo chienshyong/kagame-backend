@@ -26,11 +26,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token(data={"username": form_data.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 # Example of a protected route. returns the user's username
 # Requires header 'Authorization' : 'Bearer <token>'
-
-
+# TODO: Remove this route example is no longer needed.
 @router.get("/username")
-async def login(current_user: dict = Depends(get_current_user)):
+async def login(current_user: str = Depends(get_current_user)):
     print(current_user)
     return {"username": current_user['username']}
