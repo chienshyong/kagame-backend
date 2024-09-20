@@ -14,7 +14,7 @@ ALGORITHM = "HS256"
 
 class User(BaseModel):
     username: str
-    hashed_password: str
+    password: str
 
 
 def get_password_hash(password):
