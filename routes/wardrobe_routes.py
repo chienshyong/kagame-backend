@@ -79,6 +79,38 @@ async def get_item(item_id: str, current_user: dict = Depends(get_current_user))
             detail="Invalid wardrobe ID"
         )
 
+@router.get("/wardrobe/categories")
+async def get_categories(current_user: dict = Depends(get_current_user)):
+    try:
+        # Find all items belonging to the current user
+        user_id = current_user['_id']
+        items = kagameDB.wardrobe.find({"user_id": user_id})
+
+        # Create a dictionary to store categories and their corresponding thumbnails
+        categories_with_thumbnails = {}
+
+        # Iterate through the items to populate the dictionary
+        for item in items:
+            category = item['type']
+            # Check if the category already exists in the dictionary
+            if category not in categories_with_thumbnails:
+                # Use the first item's image as the thumbnail for the category
+                categories_with_thumbnails[category] = item['image_data']
+
+        # Convert the dictionary to a list of objects for the response
+        response = [
+            {"category": category, "thumbnail": thumbnail}
+            for category, thumbnail in categories_with_thumbnails.items()
+        ]
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching categories"
+        )
+
 @router.get("/wardrobe/available_categories")
 async def get_available_categories():
     return category_labels
