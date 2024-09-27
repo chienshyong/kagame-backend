@@ -13,3 +13,5 @@ jupyter
 rembg
 pyjwt
 python-multipart
+google-cloud-storage
+matplotlib
