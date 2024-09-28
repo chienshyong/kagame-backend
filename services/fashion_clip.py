@@ -20,11 +20,14 @@ adjective_label_embeddings = fclip.encode_text(adjective_labels_prompt, batch_si
 adjective_label_embeddings = adjective_label_embeddings/np.linalg.norm(adjective_label_embeddings, ord=2, axis=-1, keepdims=True)
 
 def generate_tags(image):
-    with tempfile.NamedTemporaryFile(delete=True, suffix='.png') as tmp:
-        image.save(tmp.name, format='JPEG')
-        images = [tmp.name]
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+        # Save the image to the temporary file
+        image.save(tmp_file, format="PNG")
+        # Get the temporary file path
+        temp_file_path = tmp_file.name
+        images = [temp_file_path]
 
-        # we create image embeddings and text embeddings
+        #we create image embeddings and text embeddings
         image_embeddings = fclip.encode_images(images, batch_size=32)
 
         # we normalize the embeddings to unit norm (so that we can use dot product instead of cosine similarity to do comparisons)
