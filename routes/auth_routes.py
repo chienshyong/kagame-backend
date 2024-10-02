@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-import services.kagameDB as kagameDB
+import services.mongodb as mongodb
 from pydantic import BaseModel
 from passlib.context import CryptContext
 import jwt

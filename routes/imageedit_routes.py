@@ -3,6 +3,8 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 from io import BytesIO
 from services.remove_bg import remove_bg
+from services.image import store_blob, get_blob_url
+import datetime
 
 router = APIRouter()
 
@@ -10,8 +12,32 @@ router = APIRouter()
 POST /image-edit/remove-bg -> Removes background from the image. Output is less reliable with multiple images
 '''
 
+
 @router.post("/image-edit/remove-bg")
 async def remove_background(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(BytesIO(contents))
+        image.verify()  # Check if the file is an actual image
+        image = Image.open(BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image file"
+        )
+
+    # Image is good
+    output = remove_bg(image)
+
+    # Output the file as a stream because google says it's faster.
+    buffer = BytesIO()
+    output.save(buffer, format="png")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+@router.post("/image-edit/upload-image")
+async def upload_image(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
@@ -23,12 +49,16 @@ async def remove_background(file: UploadFile = File(...)):
             detail="Invalid image file"
         )
 
-    # Image is good
-    output = remove_bg(image)
-    print(f"Removed an image's background")
+    image_name = store_blob(contents, f"image/{image.format}")
+    return {"image_name": image_name}
 
-    # Output the file as a stream because google says it's faster.
-    buffer = BytesIO()
-    output.save(buffer, format="png")
-    buffer.seek(0)
-    return StreamingResponse(buffer, media_type="image/png")
+
+@router.get("/image-edit/get-image")
+async def get_image(image_name: str):
+    url = get_blob_url(image_name, datetime.timedelta(seconds=5))
+    if url == None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image_name"
+        )
+    return {"image_url": url}
