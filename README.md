@@ -15,12 +15,13 @@ Use Python virtual environment to install the requirements:
 - `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Unix/maxOS)
 - `pip install -r "requirements.txt"` (Be patient, it'll take some time)
   
-Set API Keys variable values:
-- Make a copy of keys-example.py and rename it to keys.py
-- Put our API keys there. You can find this in our groupchat. If everything goes right, changes should be ignored so keys.py is never pushed 
+Set API Keys variable values and other secrets:
+- Make a copy of the `secretstuff-example` folder and rename it to `secretstuff`
+- Populate the secrets with content in our groupchat. If everything goes right, changes should be ignored so keys.py is never pushed 
 
 Test if everything works:
-- Run `fashion_clip_test.ipynb`, `db_test.ipynb` and `gcloud_test.ipynb`. See if errors popup
+- Run `fashion_clip_test.ipynb`, `db_test.ipynb` and `gcloud_test.ipynb`. See if errors popup.
+TODO(maybe?): Combine all the test Python Notebook into one file
 
 Run backend for development with:
 - `uvicorn main:app --reload`

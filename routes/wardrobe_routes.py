@@ -1,5 +1,5 @@
 from fastapi import HTTPException, APIRouter, Depends, File, UploadFile, status
-import kagameDB
+import services.kagameDB as kagameDB
 from services.auth import get_current_user
 from PIL import Image
 from io import BytesIO

@@ -1,6 +1,6 @@
 from fastapi import HTTPException, APIRouter
 from fastapi.responses import StreamingResponse
-import kagameDB
+import services.kagameDB as kagameDB
 
 router = APIRouter()
 

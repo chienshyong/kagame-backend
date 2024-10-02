@@ -1,14 +1,14 @@
 from fastapi import Depends, HTTPException, status
-import kagameDB
+import services.kagameDB as kagameDB
 from pydantic import BaseModel
 from passlib.context import CryptContext
 import jwt
 from fastapi.security import OAuth2PasswordBearer
-import keys
+from services import JWT_SECRET_KEY
 from typing_extensions import Annotated
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-SECRET_KEY = keys.JWT_SECRET_KEY
+SECRET_KEY = JWT_SECRET_KEY
 ALGORITHM = "HS256"
 
 
