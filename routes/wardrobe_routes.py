@@ -65,25 +65,18 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
 @router.get("/wardrobe/item/{item_id}")
 async def get_item(item_id: str, current_user: dict = Depends(get_current_user)):
     try:
-        query = {"_id": ObjectId(item_id)}
+        query = {"_id": ObjectId(item_id), "user_id": current_user['_id']}
         res = mongodb.wardrobe.find_one(query)
         if res is not None:
-            print(f"Found document")
-            if current_user['_id'] == res['user_id']:  # Check authorization
-                return res['type']  # Right now just returns the type, TODO: return all infos needed
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Item does not belong to user"
-                )
+            return res['type']  # Right now just returns the type, TODO: return all infos needed
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid wardrobe ID"
         )
 
-
-@router.get("/wardrobe/categories")
+# TODO(aurel)
+# @router.get("/wardrobe/categories")
 async def get_categories(current_user: dict = Depends(get_current_user)):
     try:
         # Find all items belonging to the current user
