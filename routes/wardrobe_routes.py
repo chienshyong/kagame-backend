@@ -4,14 +4,14 @@ from services.auth import get_current_user
 from PIL import Image
 from io import BytesIO
 from services.fashion_clip import generate_tags, category_labels
-from services.image import store_blob
+from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
 
 router = APIRouter()
 
 '''
 done GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives. 
-GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
+done GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
 GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image   -Should collections and categories be saved under 'user' table?
 GET /wardrobe/collections -> returns all collections for the user and a corresponding thumbnail image
 GET /wardrobe/collection/{collection} -> return all items in that collection, and a corresponding thumbnail image
@@ -32,7 +32,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         image = Image.open(BytesIO(contents))
         image.verify()  # Check if the file is an actual image
         image = Image.open(BytesIO(contents))  # Re-open to handle potential truncation issue
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file"
@@ -75,40 +75,21 @@ async def get_item(item_id: str, current_user: dict = Depends(get_current_user))
             detail="Invalid wardrobe ID"
         )
 
-# TODO(aurel)
-# @router.get("/wardrobe/categories")
 
-
+@router.get("/wardrobe/categories")
 async def get_categories(current_user: dict = Depends(get_current_user)):
-    try:
-        # Find all items belonging to the current user
-        user_id = current_user['_id']
-        items = mongodb.wardrobe.find({"user_id": user_id})
+    user_id = current_user['_id']
+    res = {"categories": []}
 
-        # Create a dictionary to store categories and their corresponding thumbnails
-        categories_with_thumbnails = {}
+    for category in category_labels:
+        item = mongodb.wardrobe.find_one({"user_id": user_id, "type": category})
+        if item == None:
+            continue
 
-        # Iterate through the items to populate the dictionary
-        for item in items:
-            category = item['type']
-            # Check if the category already exists in the dictionary
-            if category not in categories_with_thumbnails:
-                # Use the first item's image as the thumbnail for the category
-                categories_with_thumbnails[category] = item['image_data']
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["categories"].append({"type": category, "url": image_url})
 
-        # Convert the dictionary to a list of objects for the response
-        response = [
-            {"category": category, "thumbnail": thumbnail}
-            for category, thumbnail in categories_with_thumbnails.items()
-        ]
-
-        return response
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching categories"
-        )
+    return res
 
 
 @router.get("/wardrobe/available_categories")
