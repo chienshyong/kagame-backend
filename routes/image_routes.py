@@ -13,14 +13,14 @@ POST /image-edit/remove-bg -> Removes background from the image. Output is less 
 '''
 
 
-@router.post("/image-edit/remove-bg")
+@router.post("/image/remove-bg")
 async def remove_background(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
         image.verify()  # Check if the file is an actual image
         image = Image.open(BytesIO(contents))
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file"
@@ -36,7 +36,7 @@ async def remove_background(file: UploadFile = File(...)):
     return StreamingResponse(buffer, media_type="image/png")
 
 
-@router.post("/image-edit/upload-image")
+@router.post("/image/upload-image")  # TODO: Remove this because this is an unprotected image upload.
 async def upload_image(file: UploadFile = File(...)):
     try:
         contents = await file.read()
@@ -53,7 +53,7 @@ async def upload_image(file: UploadFile = File(...)):
     return {"image_name": image_name}
 
 
-@router.get("/image-edit/get-image")
+@router.get("/image/get-image")  # TODO: Remove this because this is an unprotected image access.
 async def get_image(image_name: str):
     url = get_blob_url(image_name, datetime.timedelta(seconds=5))
     if url == None:
