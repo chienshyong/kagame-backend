@@ -41,7 +41,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
     # If image is good, generate tags
     tags = generate_tags(image)
     # for now, just returns the binary of the image. Later on switch to returning a filepath.
-    image_formatted_for_db = store_blob(image)
+    image_name = store_blob(contents)
 
     # Insert a document into the collection
     document = {
@@ -50,7 +50,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         "type": tags['category'][0],
         "color": tags['color'][0],
         "description": tags['description'][:3],
-        "image_data": image_formatted_for_db
+        "image_name": image_name
     }
 
     insert_result = mongodb.wardrobe.insert_one(document)
