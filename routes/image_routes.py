@@ -3,13 +3,14 @@ from fastapi.responses import StreamingResponse
 from PIL import Image
 from io import BytesIO
 from services.remove_bg import remove_bg
-from services.image import store_blob, get_blob_url
-import datetime
+from services.image import store_blob, get_blob_url, SHORT_EXPIRY
 
 router = APIRouter()
 
 '''
-POST /image-edit/remove-bg -> Removes background from the image. Output is less reliable with multiple images
+POST /image/remove-bg -> Removes background from the image. Output is less reliable with multiple objects
+POST /image/upload-image -> Uploads an image to google cloud storage. Returns the randomly generated filename of the inserted image.
+POST /image/get-image -> Fetches an image from google cloud storage by filename. Returns a signed URL that expires in 5 seconds.
 '''
 
 
@@ -55,7 +56,7 @@ async def upload_image(file: UploadFile = File(...)):
 
 @router.get("/image/get-image")  # TODO: Remove this because this is an unprotected image access.
 async def get_image(image_name: str):
-    url = get_blob_url(image_name, datetime.timedelta(seconds=5))
+    url = get_blob_url(image_name, SHORT_EXPIRY)
     if url == None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
