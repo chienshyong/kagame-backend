@@ -41,7 +41,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
     # If image is good, generate tags
     tags = generate_tags(image)
     # for now, just returns the binary of the image. Later on switch to returning a filepath.
-    image_name = store_blob(contents)
+    image_name = store_blob(contents, f"image/{image.format}")
 
     # Insert a document into the collection
     document = {
@@ -77,6 +77,8 @@ async def get_item(item_id: str, current_user: dict = Depends(get_current_user))
 
 # TODO(aurel)
 # @router.get("/wardrobe/categories")
+
+
 async def get_categories(current_user: dict = Depends(get_current_user)):
     try:
         # Find all items belonging to the current user
