@@ -18,7 +18,7 @@ GET /wardrobe/collection/{collection} -> return all items in that collection, an
 done GET /wardrobe/item/{id} -> return the clothing item details from the id
 
 done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
-PATCH /wardrobe/item/{id} -> modify item in db (name, type, color, description)
+PATCH /wardrobe/item/{id} -> modify item in db (name, category, color, description)
 DELETE /wardrobe/item/{id} -> delete item in db
 
 GET /wardrobe/search/{query} -> search function
@@ -47,7 +47,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
     document = {
         "user_id": current_user['_id'],
         "name": "",
-        "type": tags['category'][0],
+        "category": tags['category'][0],
         "color": tags['color'][0],
         "description": tags['description'][:3],
         "image_name": image_name
@@ -68,7 +68,7 @@ async def get_item(item_id: str, current_user: dict = Depends(get_current_user))
         query = {"_id": ObjectId(item_id), "user_id": current_user['_id']}
         res = mongodb.wardrobe.find_one(query)
         if res is not None:
-            return res['type']  # Right now just returns the type, TODO: return all infos needed
+            return res["category"]  # Right now just returns the category, TODO: return all infos needed
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -82,12 +82,34 @@ async def get_categories(current_user: dict = Depends(get_current_user)):
     res = {"categories": []}
 
     for category in category_labels:
-        item = mongodb.wardrobe.find_one({"user_id": user_id, "type": category})
+        item = mongodb.wardrobe.find_one({"user_id": user_id, "category": category})
         if item == None:
             continue
 
         image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
-        res["categories"].append({"type": category, "url": image_url})
+        res["categories"].append({"category": category, "url": image_url})
+
+    return res
+
+
+@router.get("/wardrobe/category/{categories}")
+async def get_categories(categories: str, current_user: dict = Depends(get_current_user)):
+    if categories not in category_labels:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid category"
+        )
+
+    user_id = current_user['_id']
+    res = {"items": []}
+
+    for category in category_labels:
+        item = mongodb.wardrobe.find_one({"user_id": user_id, "category": category})
+        if item == None:
+            continue
+
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["categories"].append({"category": category, "url": image_url})
 
     return res
 
