@@ -59,18 +59,23 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
     return res
 
 
-@router.get("/wardrobe/item/{item_id}")
-async def get_item(item_id: str, current_user: dict = Depends(get_current_user)):
-    try:
-        query = {"_id": ObjectId(item_id), "user_id": current_user['_id']}
-        res = mongodb.wardrobe.find_one(query)
-        if res is not None:
-            return res["category"]  # Right now just returns the category, TODO: return all infos needed
-    except:
+@router.get("/wardrobe/item/{_id}")
+async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    item = mongodb.wardrobe.find_one(query)
+    if item is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid wardrobe ID"
+            detail="Invalid item_id specified"
         )
+
+    res = {}
+    res["image_url"] = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+    res["_id"] = str(item["_id"])
+    for key in ["name", "color", "description", "category"]:
+        res[key] = item[key]
+
+    return res
 
 
 @router.get("/wardrobe/categories")
