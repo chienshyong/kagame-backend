@@ -6,6 +6,10 @@ import datetime
 import base64
 import uuid
 
+SHORT_EXPIRY = datetime.timedelta(seconds=5)
+DEFAULT_EXPIRY = datetime.timedelta(minutes=1)
+LONG_EXPIRY = datetime.timedelta(minutes=15)
+
 
 def store_blob(data: bytes, content_type: str = "unknown") -> str:
     blob_name = str(uuid.uuid4())

@@ -4,21 +4,21 @@ from services.auth import get_current_user
 from PIL import Image
 from io import BytesIO
 from services.fashion_clip import generate_tags, category_labels
-from services.image import store_blob
+from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
 
 router = APIRouter()
 
 '''
 done GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives. 
-GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
-GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image   -Should collections and categories be saved under 'user' table?
+done GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
+done GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
 GET /wardrobe/collections -> returns all collections for the user and a corresponding thumbnail image
 GET /wardrobe/collection/{collection} -> return all items in that collection, and a corresponding thumbnail image
 done GET /wardrobe/item/{id} -> return the clothing item details from the id
 
 done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
-PATCH /wardrobe/item/{id} -> modify item in db (name, type, color, description)
+PATCH /wardrobe/item/{id} -> modify item in db (name, category, color, description)
 DELETE /wardrobe/item/{id} -> delete item in db
 
 GET /wardrobe/search/{query} -> search function
@@ -32,7 +32,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         image = Image.open(BytesIO(contents))
         image.verify()  # Check if the file is an actual image
         image = Image.open(BytesIO(contents))  # Re-open to handle potential truncation issue
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file"
@@ -47,68 +47,68 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
     document = {
         "user_id": current_user['_id'],
         "name": "",
-        "type": tags['category'][0],
+        "category": tags['category'][0],
         "color": tags['color'][0],
         "description": tags['description'][:3],
         "image_name": image_name
     }
-
     insert_result = mongodb.wardrobe.insert_one(document)
-    print(f"Inserted document ID: {insert_result.inserted_id}")
-
     res = tags
     res['id'] = str(insert_result.inserted_id)
 
     return res
 
 
-@router.get("/wardrobe/item/{item_id}")
-async def get_item(item_id: str, current_user: dict = Depends(get_current_user)):
-    try:
-        query = {"_id": ObjectId(item_id), "user_id": current_user['_id']}
-        res = mongodb.wardrobe.find_one(query)
-        if res is not None:
-            return res['type']  # Right now just returns the type, TODO: return all infos needed
-    except:
+@router.get("/wardrobe/item/{_id}")
+async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    item = mongodb.wardrobe.find_one(query)
+    if item is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid wardrobe ID"
+            detail="Invalid item_id specified"
         )
 
-# TODO(aurel)
-# @router.get("/wardrobe/categories")
+    res = {}
+    res["image_url"] = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+    res["_id"] = str(item["_id"])
+    for key in ["name", "color", "description", "category"]:
+        res[key] = item[key]
+
+    return res
 
 
+@router.get("/wardrobe/categories")
 async def get_categories(current_user: dict = Depends(get_current_user)):
-    try:
-        # Find all items belonging to the current user
-        user_id = current_user['_id']
-        items = mongodb.wardrobe.find({"user_id": user_id})
+    user_id = current_user['_id']
+    res = {"categories": []}
 
-        # Create a dictionary to store categories and their corresponding thumbnails
-        categories_with_thumbnails = {}
+    for category in category_labels:
+        item = mongodb.wardrobe.find_one({"user_id": user_id, "category": category})
+        if item == None:
+            continue
 
-        # Iterate through the items to populate the dictionary
-        for item in items:
-            category = item['type']
-            # Check if the category already exists in the dictionary
-            if category not in categories_with_thumbnails:
-                # Use the first item's image as the thumbnail for the category
-                categories_with_thumbnails[category] = item['image_data']
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["categories"].append({"category": category, "url": image_url})
 
-        # Convert the dictionary to a list of objects for the response
-        response = [
-            {"category": category, "thumbnail": thumbnail}
-            for category, thumbnail in categories_with_thumbnails.items()
-        ]
+    return res
 
-        return response
 
-    except Exception as e:
+@router.get("/wardrobe/category/{category}")
+async def get_categories(category: str, current_user: dict = Depends(get_current_user)):
+    if category not in category_labels:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while fetching categories"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid category specified"
         )
+
+    user_id = current_user['_id']
+    res = {"items": []}
+    items = mongodb.wardrobe.find({"user_id": user_id, "category": category})
+    for item in items:
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["items"].append({"_id": str(item["_id"]), "name": item["name"], "url": image_url})
+    return res
 
 
 @router.get("/wardrobe/available_categories")
