@@ -13,3 +13,6 @@ jupyter
 rembg
 pyjwt
 python-multipart
+google-cloud-storage
+google-auth
+matplotlib

@@ -1,5 +1,7 @@
 __pycache__/
 mongodb/
 
-keys.py
+secretstuff/*
+keys*
+keys/*
 .venv

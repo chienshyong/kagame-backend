@@ -1,19 +1,27 @@
-
-#Takes in a normal image and returns the format it should be stored in the DB
-#For now, store images as binary in the DB, so return the binary
-#But later, change to storing in a filesystem and return the link
-
+from services.googlecloud import bucket
 from PIL import Image
 from io import BytesIO
+from typing import Optional
+import datetime
 import base64
+import uuid
 
-def store_image(image):
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    return img_str
+SHORT_EXPIRY = datetime.timedelta(seconds=5)
+DEFAULT_EXPIRY = datetime.timedelta(minutes=1)
+LONG_EXPIRY = datetime.timedelta(minutes=15)
 
-def get_image(image_formatted_for_db):
-    img_data = base64.b64decode(image_formatted_for_db)
-    image = Image.open(BytesIO(img_data))
-    return image
+
+def store_blob(data: bytes, content_type: str = "unknown") -> str:
+    blob_name = str(uuid.uuid4())
+    bucket.blob(blob_name).upload_from_string(data, content_type=content_type)
+    return blob_name
+
+
+def get_blob_url(blob_name: str, expiration: datetime.timedelta) -> Optional[str]:
+    # TODO(maybe): Throw exception if blob_name is invalid?
+    blob = bucket.blob(blob_name)
+
+    if (not blob.exists()):
+        return None
+
+    return blob.generate_signed_url(expiration=expiration, method='GET')
