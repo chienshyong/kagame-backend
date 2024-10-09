@@ -1,37 +1,33 @@
 from fastapi import HTTPException, APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse
 import services.mongodb as mongodb
-import mimetypes  # To guess the MIME type of the image
+from services.image import get_blob_url, DEFAULT_EXPIRY
 
 router = APIRouter()
 
 @router.get("/images")
 def get_images():
     # Find all documents in the collection
-    cursor = mongodb.catalogue.find({}, {"_id": 1, "image_path": 1, "retailer": 1})
+    cursor = mongodb.catalogue.find({}, {"_id": 1, "image_name": 1, "retailer": 1})
 
     response = []
     for document in cursor:
         response.append({
             'id': str(document['_id']),
-            'image_path': document.get('image_path', ''),
+            'image_name': document.get('image_name', ''),
             'retailer': document.get('retailer', '')
         })
 
     return response
 
-@router.get("/images/{image_path}")
-def get_image(image_path: str):
-    # Assuming you have a function in mongodb module to retrieve image binary data
-    image_data = mongodb.get_image_data(image_path)
+@router.get("/images/{image_name}")
+def get_image(image_name: str):
+    # Generate a signed URL for the image in Google Cloud Storage
+    image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
 
-    if image_data is not None:
-        # Guess the MIME type based on the image file extension
-        mime_type, _ = mimetypes.guess_type(image_path)
-        if mime_type is None:
-            mime_type = 'application/octet-stream'  # Default MIME type
-
-        return StreamingResponse(image_data, media_type=mime_type)
+    if image_url:
+        # Redirect the client to the signed URL
+        return RedirectResponse(url=image_url)
     else:
         raise HTTPException(status_code=404, detail="Image not found")
         
