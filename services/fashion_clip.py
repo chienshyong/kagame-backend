@@ -1,31 +1,35 @@
 from fashion_clip.fashion_clip import FashionCLIP
 import numpy as np
 import tempfile
+from PIL import Image
 
 fclip = FashionCLIP('fashion-clip')
 
-category_labels = ["Tops", "Bottoms", "Outerwear", "Dresses", "Underwear", "Activewear", "Sleepwear", "Accessories", "Footwear", "Glasses", "Jacket", "Socks"]
-color_labels = ["Red", "Blue", "Yellow", "Green", "Orange", "Purple", "Black", "White", "Gray", "Brown", "Beige", "Pink"]
-adjective_labels = ["stylish", "elegant", "comfortable", "trendy", "casual", "formal", "chic", "vintage", "modern", "sleek", "vibrant", "classic", "sporty", "luxurious", "fitted", "loose", "colorful", "monochrome", "bold", "subtle"]
+category_labels = ["Tops", "Bottoms", "Outerwear", "Dresses", "Underwear",
+                   "Activewear", "Sleepwear", "Accessories", "Footwear", "Glasses", "Jacket", "Socks"]
+color_labels = ["Red", "Blue", "Yellow", "Green", "Orange",
+                "Purple", "Black", "White", "Gray", "Brown", "Beige", "Pink"]
+adjective_labels = ["stylish", "elegant", "comfortable", "trendy", "casual", "formal", "chic", "vintage", "modern",
+                    "sleek", "vibrant", "classic", "sporty", "luxurious", "fitted", "loose", "colorful", "monochrome", "bold", "subtle"]
 
 category_labels_prompt = [f"A product picture of {k}" for k in category_labels]
 color_labels_prompt = [f"A {k} piece of clothing" for k in color_labels]
 adjective_labels_prompt = [f"A {k} piece of clothing" for k in adjective_labels]
 
 category_label_embeddings = fclip.encode_text(category_labels_prompt, batch_size=32)
-category_label_embeddings = category_label_embeddings/np.linalg.norm(category_label_embeddings, ord=2, axis=-1, keepdims=True)
+category_label_embeddings = category_label_embeddings / \
+    np.linalg.norm(category_label_embeddings, ord=2, axis=-1, keepdims=True)
 color_label_embeddings = fclip.encode_text(color_labels_prompt, batch_size=32)
 color_label_embeddings = color_label_embeddings/np.linalg.norm(color_label_embeddings, ord=2, axis=-1, keepdims=True)
 adjective_label_embeddings = fclip.encode_text(adjective_labels_prompt, batch_size=32)
-adjective_label_embeddings = adjective_label_embeddings/np.linalg.norm(adjective_label_embeddings, ord=2, axis=-1, keepdims=True)
+adjective_label_embeddings = adjective_label_embeddings / \
+    np.linalg.norm(adjective_label_embeddings, ord=2, axis=-1, keepdims=True)
 
-def generate_tags(image):
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
-        # Save the image to the temporary file
-        image.save(tmp_file, format="PNG")
-        # Get the temporary file path
-        temp_file_path = tmp_file.name
-        images = [temp_file_path]
+
+def generate_tags(image: Image):
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+        image.save(tmp, format='PNG')
+        images = [tmp.name]
 
         #we create image embeddings and text embeddings
         image_embeddings = fclip.encode_images(images, batch_size=32)
@@ -46,5 +50,6 @@ def generate_tags(image):
         weights = adjective_predicted_classes_distribution[:, 0]
         desc_indices = sorted(range(len(weights)), key=lambda i: weights[i], reverse=True)[:8]
 
-        res = {"category" : [category_labels[i] for i in cat_indices], "color" : [color_labels[i] for i in color_indices], "description" : [adjective_labels[i] for i in desc_indices]}
+        res = {"category": [category_labels[i] for i in cat_indices], "color": [color_labels[i]
+                                                                                for i in color_indices], "description": [adjective_labels[i] for i in desc_indices]}
         return res

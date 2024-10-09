@@ -1,10 +1,10 @@
 from fastapi import HTTPException, APIRouter, Depends, File, UploadFile, status
-import kagameDB
+import services.mongodb as mongodb
 from services.auth import get_current_user
 from PIL import Image
 from io import BytesIO
 from services.fashion_clip import generate_tags, category_labels
-from services.image import store_image
+from services.image import store_blob
 from bson import ObjectId
 
 router = APIRouter()
@@ -24,6 +24,7 @@ DELETE /wardrobe/item/{id} -> delete item in db
 GET /wardrobe/search/{query} -> search function
 '''
 
+
 @router.post("/wardrobe/item")
 async def create_item(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     try:
@@ -37,9 +38,10 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
             detail="Invalid image file"
         )
 
-    #If image is good, generate tags
+    # If image is good, generate tags
     tags = generate_tags(image)
-    image_formatted_for_db = store_image(image) #for now, just returns the binary of the image. Later on switch to returning a filepath.
+    # for now, just returns the binary of the image. Later on switch to returning a filepath.
+    image_name = store_blob(contents, f"image/{image.format}")
 
     # Insert a document into the collection
     document = {
@@ -48,43 +50,40 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         "type": tags['category'][0],
         "color": tags['color'][0],
         "description": tags['description'][:3],
-        "image_data": image_formatted_for_db
+        "image_name": image_name
     }
 
-    insert_result = kagameDB.wardrobe.insert_one(document)
+    insert_result = mongodb.wardrobe.insert_one(document)
     print(f"Inserted document ID: {insert_result.inserted_id}")
 
     res = tags
     res['id'] = str(insert_result.inserted_id)
-    
+
     return res
+
 
 @router.get("/wardrobe/item/{item_id}")
 async def get_item(item_id: str, current_user: dict = Depends(get_current_user)):
     try:
-        query = {"_id": ObjectId(item_id)}
-        res = kagameDB.wardrobe.find_one(query)
+        query = {"_id": ObjectId(item_id), "user_id": current_user['_id']}
+        res = mongodb.wardrobe.find_one(query)
         if res is not None:
-            print(f"Found document")
-            if current_user['_id'] == res['user_id']: #Check authorization
-                return res['type'] #Right now just returns the type, TODO: return all infos needed
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Item does not belong to user"
-                )
+            return res['type']  # Right now just returns the type, TODO: return all infos needed
     except:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid wardrobe ID"
         )
 
-@router.get("/wardrobe/categories")
+# TODO(aurel)
+# @router.get("/wardrobe/categories")
+
+
 async def get_categories(current_user: dict = Depends(get_current_user)):
     try:
         # Find all items belonging to the current user
         user_id = current_user['_id']
-        items = kagameDB.wardrobe.find({"user_id": user_id})
+        items = mongodb.wardrobe.find({"user_id": user_id})
 
         # Create a dictionary to store categories and their corresponding thumbnails
         categories_with_thumbnails = {}
@@ -110,6 +109,7 @@ async def get_categories(current_user: dict = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching categories"
         )
+
 
 @router.get("/wardrobe/available_categories")
 async def get_available_categories():
