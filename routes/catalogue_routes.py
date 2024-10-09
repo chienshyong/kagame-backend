@@ -1,33 +1,51 @@
-from fastapi import HTTPException, APIRouter
-from fastapi.responses import RedirectResponse
+from fastapi import HTTPException, APIRouter, Request
+from fastapi.responses import StreamingResponse
 import services.mongodb as mongodb
-from services.image import get_blob_url, DEFAULT_EXPIRY
+from typing import List
+import io
+from PIL import Image
+import mimetypes
 
 router = APIRouter()
 
 @router.get("/images")
 def get_images():
     # Find all documents in the collection
-    cursor = mongodb.catalogue.find({}, {"_id": 1, "image_name": 1, "retailer": 1})
+    cursor = mongodb.catalogue.find({}, {"_id": 1, "image_path": 1, "retailer": 1})
 
     response = []
     for document in cursor:
         response.append({
             'id': str(document['_id']),
-            'image_name': document.get('image_name', ''),
+            'image_path': document.get('image_path', ''),
             'retailer': document.get('retailer', '')
         })
 
     return response
 
-@router.get("/images/{image_name}")
-def get_image(image_name: str):
-    # Generate a signed URL for the image in Google Cloud Storage
-    image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
+@router.get("/images/{image_path}")
+def get_image(image_path: str):
+    # Find the document with the given image_path
+    document = mongodb.catalogue.find_one(
+        {"image_path": image_path},
+        {"image_data": 1, "image_path": 1}
+    )
 
-    if image_url:
-        # Redirect the client to the signed URL
-        return RedirectResponse(url=image_url)
+    if document and 'image_data' in document:
+        # Get the image binary data
+        image_binary = document['image_data']
+
+        # Convert BSON binary to bytes
+        image_bytes = bytes(image_binary)
+
+        # Determine the MIME type
+        mime_type, _ = mimetypes.guess_type(document.get('image_path', ''))
+        if not mime_type:
+            # If MIME type couldn't be guessed, use a default
+            mime_type = 'application/octet-stream'
+
+        # Serve the image as a streaming response
+        return StreamingResponse(io.BytesIO(image_bytes), media_type=mime_type)
     else:
         raise HTTPException(status_code=404, detail="Image not found")
         
