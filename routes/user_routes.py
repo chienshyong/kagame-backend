@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 import jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from services.auth import *
+from services.user import *
 router = APIRouter()
 
 

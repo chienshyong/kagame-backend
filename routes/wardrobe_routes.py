@@ -1,6 +1,6 @@
 from fastapi import HTTPException, APIRouter, Depends, File, UploadFile, status
 import services.mongodb as mongodb
-from services.auth import get_current_user
+from services.user import get_current_user
 from PIL import Image
 from io import BytesIO
 from services.fashion_clip import generate_tags, category_labels
