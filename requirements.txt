@@ -16,3 +16,4 @@ python-multipart
 google-cloud-storage
 google-auth
 matplotlib
+openai
