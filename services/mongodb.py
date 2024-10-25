@@ -1,5 +1,21 @@
 from pymongo import MongoClient
 from services import MONGODB_CONNECTION_STRING
+from pydantic import BaseModel
+from typing import Literal, List
+
+
+class CatalogueItem(BaseModel):
+    name: str
+    category: Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']
+    description: str
+    embedding: List[float]
+    price: float
+    image_url: str
+    product_url: str
+    retailer: str
+
+# TODO(aurel): Add other 'schemas'
+
 
 # If connection fail, ensure IP address is whitelisted on Atlas
 client = MongoClient(MONGODB_CONNECTION_STRING)
