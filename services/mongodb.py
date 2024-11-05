@@ -7,8 +7,14 @@ from typing import Literal, List
 class CatalogueItem(BaseModel):
     name: str
     category: Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']
-    description: str
-    embedding: List[float]
+    clothing_type: str
+    clothing_type_embed: List[float]
+    color: str
+    color_embed: List[float]
+    material: str
+    material_embed: List[float]
+    other_tags: List[str]
+    other_tags_embed: List[List[float]]
     price: float
     image_url: str
     product_url: str
