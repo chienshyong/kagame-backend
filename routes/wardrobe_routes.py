@@ -10,16 +10,16 @@ from services.recommender import generate_tags, category_labels, WardrobeTags
 router = APIRouter()
 
 '''
-done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
-done GET /wardrobe/item/{id} -> return the clothing item details from the id
-done PATCH /wardrobe/item/{id} -> modify item in db (name, category, tags)
-done DELETE /wardrobe/item/{id} -> delete item in db
+POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
+GET /wardrobe/item/{id} -> return the clothing item details from the id
+PATCH /wardrobe/item/{id} -> modify item in db (name, category, tags)
+DELETE /wardrobe/item/{id} -> delete item in db
+ 
+GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
+GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
+GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives.
 
-done GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives. 
-done GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
-done GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
-
-GET /wardrobe/search/{query} -> search function
+GET /wardrobe/search/{query} -> search function, returns all items which include the search term in name or tags
 '''
 
 @router.post("/wardrobe/item")
@@ -139,3 +139,20 @@ async def get_categories(category: str, current_user: dict = Depends(get_current
 @router.get("/wardrobe/available_categories")
 async def get_available_categories():
     return category_labels
+
+@router.get("/wardrobe/search/{search_term}")
+async def get_categories(search_term = str, current_user: dict = Depends(get_current_user)):
+    # Find documents where 'name' contains the search term (case-insensitive)
+    items = mongodb.wardrobe.find({
+        "$or": [
+            {"name": {"$regex": search_term, "$options": "i"}},
+            {"tags": {"$elemMatch": {"$regex": search_term, "$options": "i"}}}
+        ]
+    })
+
+    res = {"items": []}
+    for item in items:
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["items"].append({"_id": str(item["_id"]), "name": item["name"], "url": image_url})
+
+    return res
