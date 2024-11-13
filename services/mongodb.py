@@ -1,10 +1,12 @@
 from pymongo import MongoClient
+from bson import ObjectId
 from services import MONGODB_CONNECTION_STRING
 from pydantic import BaseModel
 from typing import Literal, List
 
 
 class CatalogueItem(BaseModel):
+    _id: ObjectId
     name: str
     category: Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']
     clothing_type: str
@@ -19,6 +21,12 @@ class CatalogueItem(BaseModel):
     image_url: str
     product_url: str
     retailer: str
+
+
+class UserItem(BaseModel):
+    _id: ObjectId
+    username: str
+    password: str
 
 # TODO(aurel): Add other 'schemas'
 
