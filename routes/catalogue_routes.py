@@ -52,48 +52,51 @@ def get_image(image_path: str):
 @router.get("/shop/items")
 def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit: int = 0):
     try:
-        # Define the filter to search by retailer
+        # Define the filter for the retailer
         filter_criteria = {"retailer": retailer}
 
-        # Adjust the projection to include embeddings only if requested
+        # Adjust the projection to include new fields and embeddings if requested
         projection = {
             "name": 1,
             "category": 1,
             "price": 1,
             "image_url": 1,
-            "product_url": 1
+            "product_url": 1,
+            "clothing_type": 1,
+            "color": 1,
+            "material": 1,
+            "other_tags": 1
         }
         if include_embeddings:
             projection["embedding"] = 1
 
-        # Query to find items by retailer with optional limit
+        # Query for items with an optional limit
         items_cursor = mongodb.catalogue.find(filter_criteria, projection)
         if limit > 0:
             items_cursor = items_cursor.limit(limit)
 
-        # Prepare the response list
         response = []
         for item in items_cursor:
-            # Construct the item data structure
             item_data = {
-                "id": str(item["_id"]),  # Convert ObjectId to string
+                "id": str(item["_id"]),
                 "name": item.get("name", ""),
                 "category": item.get("category", ""),
                 "price": item.get("price", ""),
                 "image_url": item.get("image_url", ""),
-                "product_url": item.get("product_url", "")
+                "product_url": item.get("product_url", ""),
+                "clothing_type": item.get("clothing_type", ""),
+                "color": item.get("color", ""),
+                "material": item.get("material", ""),
+                "other_tags": item.get("other_tags","")
             }
-            # Include embeddings if requested
             if include_embeddings and "embedding" in item:
                 item_data["embedding"] = item["embedding"]
 
             response.append(item_data)
 
-        # Return the list of items for the specified retailer
         return response
 
     except Exception as e:
-        # Handle any errors that occur
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while fetching items: {str(e)}"
