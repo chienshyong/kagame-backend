@@ -5,21 +5,19 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.recommender import generate_tags, category_labels
+from services.recommender import generate_tags, category_labels, WardrobeTags
 
 router = APIRouter()
 
 '''
+done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
+done GET /wardrobe/item/{id} -> return the clothing item details from the id
+done PATCH /wardrobe/item/{id} -> modify item in db (name, category, tags)
+done DELETE /wardrobe/item/{id} -> delete item in db
+
 done GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives. 
 done GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
 done GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
-GET /wardrobe/collections -> returns all collections for the user and a corresponding thumbnail image
-GET /wardrobe/collection/{collection} -> return all items in that collection, and a corresponding thumbnail image
-done GET /wardrobe/item/{id} -> return the clothing item details from the id
-
-done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
-PATCH /wardrobe/item/{id} -> modify item in db (name, category, color, description)
-DELETE /wardrobe/item/{id} -> delete item in db
 
 GET /wardrobe/search/{query} -> search function
 '''
@@ -38,7 +36,10 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         )
     
     # Generate tags
-    tags = generate_tags(image)
+    new_width = 200
+    new_height = image.size[1] * new_width // image.size[0] 
+    resized_image = image.resize((new_width, new_height)) # Downsize to reduce inference time (5s -> 2s)
+    tags = generate_tags(resized_image)
 
     # Upload image
     image_name = store_blob(contents, f"image/{image.format}")
@@ -48,14 +49,14 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
         "user_id": current_user['_id'],
         "name": tags['name'],
         "category": tags['category'],
-        "tags": tags['adjectives'],
+        "tags": tags['tags'],
         "image_name": image_name
     }
     insert_result = mongodb.wardrobe.insert_one(document)
     res = tags
     res['id'] = str(insert_result.inserted_id)
 
-    return tags
+    return res
 
 
 @router.get("/wardrobe/item/{_id}")
@@ -76,6 +77,33 @@ async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
 
     return res
 
+@router.patch("/wardrobe/item/{_id}")
+async def patch_item(_id: str, new_data: WardrobeTags, current_user: dict = Depends(get_current_user)):
+    print(id)
+    print(new_data)
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    new_data_query = {"$set": {"name": new_data.name, "category": new_data.category, "tags": new_data.tags}}
+    result = mongodb.wardrobe.update_one(query, new_data_query)
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_id specified"
+        )
+    else:
+        return "Item updated successfully."
+
+@router.delete("/wardrobe/item/{_id}")
+async def delete_item(_id: str, current_user: dict = Depends(get_current_user)):
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    result = mongodb.wardrobe.delete_one(query)
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_id specified"
+        )
+    else:
+        return "Item deleted successfully."
+
 
 @router.get("/wardrobe/categories")
 async def get_categories(current_user: dict = Depends(get_current_user)):
@@ -92,7 +120,6 @@ async def get_categories(current_user: dict = Depends(get_current_user)):
 
     return res
 
-
 @router.get("/wardrobe/category/{category}")
 async def get_categories(category: str, current_user: dict = Depends(get_current_user)):
     if category not in category_labels:
@@ -108,7 +135,6 @@ async def get_categories(category: str, current_user: dict = Depends(get_current
         image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
         res["items"].append({"_id": str(item["_id"]), "name": item["name"], "url": image_url})
     return res
-
 
 @router.get("/wardrobe/available_categories")
 async def get_available_categories():

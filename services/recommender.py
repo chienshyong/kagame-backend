@@ -19,7 +19,7 @@ class ClothingTags(BaseModel): #For catalogue
 class WardrobeTags(BaseModel): #For wardrobe
     name: str
     category: str
-    adjectives: list[str]
+    tags: list[str]
 
 client = OpenAI(
   organization=OPENAI_ORG_ID,
@@ -30,10 +30,7 @@ client = OpenAI(
 # Generate tags from user uploaded image
 def generate_tags(image: Image):   
     buffered = BytesIO()
-    new_width = 200
-    new_height = image.size[1] * new_width // image.size[0] 
-    resized_image = image.resize((new_width, new_height)) # Downsize to reduce inference time (5s -> 2s)
-    resized_image.save(buffered, format="PNG")  # Change format if needed, e.g., "JPEG"
+    image.save(buffered, format="PNG")  # Change format if needed, e.g., "JPEG"
     imgb64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
     prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand)"
     output = client.beta.chat.completions.parse(
@@ -59,3 +56,4 @@ def generate_tags(image: Image):
     )
 
     return json.loads(output.choices[0].message.content)
+
