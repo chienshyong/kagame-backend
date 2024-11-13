@@ -3,9 +3,9 @@ import services.mongodb as mongodb
 from services.user import get_current_user
 from PIL import Image
 from io import BytesIO
-from services.fashion_clip import generate_tags, category_labels
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
+from services.recommender import generate_tags, category_labels
 
 router = APIRouter()
 
@@ -24,7 +24,6 @@ DELETE /wardrobe/item/{id} -> delete item in db
 GET /wardrobe/search/{query} -> search function
 '''
 
-
 @router.post("/wardrobe/item")
 async def create_item(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     try:
@@ -37,26 +36,26 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file"
         )
-
-    # If image is good, generate tags
+    
+    # Generate tags
     tags = generate_tags(image)
-    # for now, just returns the binary of the image. Later on switch to returning a filepath.
+
+    # Upload image
     image_name = store_blob(contents, f"image/{image.format}")
 
     # Insert a document into the collection
     document = {
         "user_id": current_user['_id'],
-        "name": "",
-        "category": tags['category'][0],
-        "color": tags['color'][0],
-        "description": tags['description'][:3],
+        "name": tags['name'],
+        "category": tags['category'],
+        "tags": tags['adjectives'],
         "image_name": image_name
     }
     insert_result = mongodb.wardrobe.insert_one(document)
     res = tags
     res['id'] = str(insert_result.inserted_id)
 
-    return res
+    return tags
 
 
 @router.get("/wardrobe/item/{_id}")
@@ -72,7 +71,7 @@ async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
     res = {}
     res["image_url"] = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
     res["_id"] = str(item["_id"])
-    for key in ["name", "color", "description", "category"]:
+    for key in ["name", "category", "tags"]:
         res[key] = item[key]
 
     return res
