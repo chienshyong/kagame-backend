@@ -61,7 +61,7 @@ def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit
             "category": 1,
             "price": 1,
             "image_url": 1,
-            "product_link": 1
+            "product_url": 1
         }
         if include_embeddings:
             projection["embedding"] = 1
@@ -81,7 +81,7 @@ def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit
                 "category": item.get("category", ""),
                 "price": item.get("price", ""),
                 "image_url": item.get("image_url", ""),
-                "product_link": item.get("product_link", "")
+                "product_url": item.get("product_url", "")
             }
             # Include embeddings if requested
             if include_embeddings and "embedding" in item:
