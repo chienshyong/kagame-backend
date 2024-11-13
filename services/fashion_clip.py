@@ -1,9 +1,13 @@
-from fashion_clip.fashion_clip import FashionCLIP
 import numpy as np
 import tempfile
 from PIL import Image
 
-fclip = FashionCLIP('fashion-clip')
+# False so server startup isn't as slow when we're doing development.
+load_fashionclip = False
+
+if (load_fashionclip):
+    from fashion_clip.fashion_clip import FashionCLIP
+    fclip = FashionCLIP('fashion-clip')
 
 category_labels = ["Tops", "Bottoms", "Outerwear", "Dresses", "Underwear",
                    "Activewear", "Sleepwear", "Accessories", "Footwear", "Glasses", "Jacket", "Socks"]
@@ -16,22 +20,28 @@ category_labels_prompt = [f"A product picture of {k}" for k in category_labels]
 color_labels_prompt = [f"A {k} piece of clothing" for k in color_labels]
 adjective_labels_prompt = [f"A {k} piece of clothing" for k in adjective_labels]
 
-category_label_embeddings = fclip.encode_text(category_labels_prompt, batch_size=32)
-category_label_embeddings = category_label_embeddings / \
-    np.linalg.norm(category_label_embeddings, ord=2, axis=-1, keepdims=True)
-color_label_embeddings = fclip.encode_text(color_labels_prompt, batch_size=32)
-color_label_embeddings = color_label_embeddings/np.linalg.norm(color_label_embeddings, ord=2, axis=-1, keepdims=True)
-adjective_label_embeddings = fclip.encode_text(adjective_labels_prompt, batch_size=32)
-adjective_label_embeddings = adjective_label_embeddings / \
-    np.linalg.norm(adjective_label_embeddings, ord=2, axis=-1, keepdims=True)
+if (load_fashionclip):
+    category_label_embeddings = fclip.encode_text(category_labels_prompt, batch_size=32)
+    category_label_embeddings = category_label_embeddings / \
+        np.linalg.norm(category_label_embeddings, ord=2, axis=-1, keepdims=True)
+    color_label_embeddings = fclip.encode_text(color_labels_prompt, batch_size=32)
+    color_label_embeddings = color_label_embeddings / \
+        np.linalg.norm(color_label_embeddings, ord=2, axis=-1, keepdims=True)
+    adjective_label_embeddings = fclip.encode_text(adjective_labels_prompt, batch_size=32)
+    adjective_label_embeddings = adjective_label_embeddings / \
+        np.linalg.norm(adjective_label_embeddings, ord=2, axis=-1, keepdims=True)
 
 
 def generate_tags(image: Image):
+    if (not load_fashionclip):
+        print("Warning: Fashionclip is disabled. fashion_clip.generate_tags is thus disabled.")
+        return {"category": "NIL", "color": "NIL", "description": "NIL"}
+
     with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
         image.save(tmp, format='PNG')
         images = [tmp.name]
 
-        #we create image embeddings and text embeddings
+        # we create image embeddings and text embeddings
         image_embeddings = fclip.encode_images(images, batch_size=32)
 
         # we normalize the embeddings to unit norm (so that we can use dot product instead of cosine similarity to do comparisons)
