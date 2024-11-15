@@ -1,54 +1,10 @@
-from fastapi import HTTPException, APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi import HTTPException, APIRouter
 import services.mongodb as mongodb
-from typing import List
-import io
-from PIL import Image
-import mimetypes
+from services.openai import str_to_clothing_tag, clothing_tag_to_embedding, get_n_closest
 
 router = APIRouter()
 
-@router.get("/images")
-def get_images():
-    # Find all documents in the collection
-    cursor = mongodb.catalogue.find({}, {"_id": 1, "image_path": 1, "retailer": 1})
 
-    response = []
-    for document in cursor:
-        response.append({
-            'id': str(document['_id']),
-            'image_path': document.get('image_path', ''),
-            'retailer': document.get('retailer', '')
-        })
-
-    return response
-
-@router.get("/images/{image_path}")
-def get_image(image_path: str):
-    # Find the document with the given image_path
-    document = mongodb.catalogue.find_one(
-        {"image_path": image_path},
-        {"image_data": 1, "image_path": 1}
-    )
-
-    if document and 'image_data' in document:
-        # Get the image binary data
-        image_binary = document['image_data']
-
-        # Convert BSON binary to bytes
-        image_bytes = bytes(image_binary)
-
-        # Determine the MIME type
-        mime_type, _ = mimetypes.guess_type(document.get('image_path', ''))
-        if not mime_type:
-            # If MIME type couldn't be guessed, use a default
-            mime_type = 'application/octet-stream'
-
-        # Serve the image as a streaming response
-        return StreamingResponse(io.BytesIO(image_bytes), media_type=mime_type)
-    else:
-        raise HTTPException(status_code=404, detail="Image not found")
-        
 @router.get("/shop/items")
 def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit: int = 0):
     try:
@@ -87,7 +43,7 @@ def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit
                 "clothing_type": item.get("clothing_type", ""),
                 "color": item.get("color", ""),
                 "material": item.get("material", ""),
-                "other_tags": item.get("other_tags","")
+                "other_tags": item.get("other_tags", "")
             }
             if include_embeddings and "embedding" in item:
                 item_data["embedding"] = item["embedding"]
@@ -101,3 +57,15 @@ def get_items_by_retailer(retailer: str, include_embeddings: bool = False, limit
             status_code=500,
             detail=f"An error occurred while fetching items: {str(e)}"
         )
+
+
+@router.get("/shop/recommendation")
+def get_recommendations(prompt: str, n: int):
+    clothing_tag = str_to_clothing_tag(prompt)
+    embedding = clothing_tag_to_embedding(clothing_tag)
+    recs = list(get_n_closest(embedding, n))
+
+    for rec in recs:
+        rec['_id'] = str(rec['_id'])
+
+    return recs

@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_tags, category_labels, WardrobeTags
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag
 
 router = APIRouter()
 
@@ -47,7 +47,7 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
     # Upload image
     image_name = store_blob(resized_image_arr.getvalue(), f"image/{image.format}")
     image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
-    tags = generate_tags(image_url)
+    tags = generate_wardrobe_tags(image_url)
 
     # Insert a document into the collection
     document = {
@@ -84,7 +84,7 @@ async def get_item(_id: str, current_user: UserItem = Depends(get_current_user))
 
 
 @router.patch("/wardrobe/item/{_id}")
-async def patch_item(_id: str, new_data: WardrobeTags, current_user: UserItem = Depends(get_current_user)):
+async def patch_item(_id: str, new_data: WardrobeTag, current_user: UserItem = Depends(get_current_user)):
     print(id)
     print(new_data)
     query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
