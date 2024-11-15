@@ -21,6 +21,7 @@ class CatalogueItem(BaseModel):
     image_url: str
     product_url: str
     retailer: str
+    gender: Literal['F', 'M', 'U']  # Female, Male, Unisex
 
 
 class UserItem(BaseModel):
