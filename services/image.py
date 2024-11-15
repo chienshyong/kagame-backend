@@ -6,7 +6,7 @@ import datetime
 import base64
 import uuid
 
-SHORT_EXPIRY = datetime.timedelta(seconds=5)
+SHORT_EXPIRY = datetime.timedelta(seconds=15)
 DEFAULT_EXPIRY = datetime.timedelta(minutes=1)
 LONG_EXPIRY = datetime.timedelta(minutes=15)
 

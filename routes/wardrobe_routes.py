@@ -1,32 +1,31 @@
 from fastapi import HTTPException, APIRouter, Depends, File, UploadFile, status
 import services.mongodb as mongodb
+from services.mongodb import UserItem
 from services.user import get_current_user
 from PIL import Image
 from io import BytesIO
-from services.fashion_clip import generate_tags, category_labels
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
+from services.openai import generate_tags, category_labels, WardrobeTags
 
 router = APIRouter()
 
 '''
-done GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives. 
-done GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
-done GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
-GET /wardrobe/collections -> returns all collections for the user and a corresponding thumbnail image
-GET /wardrobe/collection/{collection} -> return all items in that collection, and a corresponding thumbnail image
-done GET /wardrobe/item/{id} -> return the clothing item details from the id
-
-done POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
-PATCH /wardrobe/item/{id} -> modify item in db (name, category, color, description)
+POST /wardrobe/item -> new item into db. Automatically creates tags and returns them for editing.
+GET /wardrobe/item/{id} -> return the clothing item details from the id
+PATCH /wardrobe/item/{id} -> modify item in db (name, category, tags)
 DELETE /wardrobe/item/{id} -> delete item in db
 
-GET /wardrobe/search/{query} -> search function
+GET /wardrobe/categories -> returns all categories for the user and a corresponding thumbnail image link
+GET /wardrobe/category/{category} -> return all items in that category, and a corresponding thumbnail image
+GET /wardrobe/available_categories -> returns list of available categories. Don't hardcode colors and adjectives.
+
+GET /wardrobe/search/{query} -> search function, returns all items which include the search term in name or tags
 '''
 
 
 @router.post("/wardrobe/item")
-async def create_item(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def create_item(file: UploadFile = File(...), current_user: UserItem = Depends(get_current_user)):
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
@@ -38,18 +37,24 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
             detail="Invalid image file"
         )
 
-    # If image is good, generate tags
-    tags = generate_tags(image)
-    # for now, just returns the binary of the image. Later on switch to returning a filepath.
-    image_name = store_blob(contents, f"image/{image.format}")
+    # Resize image
+    new_width = 400
+    new_height = image.size[1] * new_width // image.size[0]
+    resized_image = image.resize((new_width, new_height))  # Downsize to reduce inference time (5s -> 2s)
+    resized_image_arr = BytesIO()
+    resized_image.save(resized_image_arr, format=image.format)
+
+    # Upload image
+    image_name = store_blob(resized_image_arr.getvalue(), f"image/{image.format}")
+    image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
+    tags = generate_tags(image_url)
 
     # Insert a document into the collection
     document = {
         "user_id": current_user['_id'],
-        "name": "",
-        "category": tags['category'][0],
-        "color": tags['color'][0],
-        "description": tags['description'][:3],
+        "name": tags['name'],
+        "category": tags['category'],
+        "tags": tags['tags'],
         "image_name": image_name
     }
     insert_result = mongodb.wardrobe.insert_one(document)
@@ -60,7 +65,7 @@ async def create_item(file: UploadFile = File(...), current_user: dict = Depends
 
 
 @router.get("/wardrobe/item/{_id}")
-async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
+async def get_item(_id: str, current_user: UserItem = Depends(get_current_user)):
     query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
     item = mongodb.wardrobe.find_one(query)
     if item is None:
@@ -72,14 +77,43 @@ async def get_item(_id: str, current_user: dict = Depends(get_current_user)):
     res = {}
     res["image_url"] = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
     res["_id"] = str(item["_id"])
-    for key in ["name", "color", "description", "category"]:
+    for key in ["name", "category", "tags"]:
         res[key] = item[key]
 
     return res
 
 
+@router.patch("/wardrobe/item/{_id}")
+async def patch_item(_id: str, new_data: WardrobeTags, current_user: UserItem = Depends(get_current_user)):
+    print(id)
+    print(new_data)
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    new_data_query = {"$set": {"name": new_data.name, "category": new_data.category, "tags": new_data.tags}}
+    result = mongodb.wardrobe.update_one(query, new_data_query)
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_id specified"
+        )
+    else:
+        return "Item updated successfully."
+
+
+@router.delete("/wardrobe/item/{_id}")
+async def delete_item(_id: str, current_user: UserItem = Depends(get_current_user)):
+    query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
+    result = mongodb.wardrobe.delete_one(query)
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_id specified"
+        )
+    else:
+        return "Item deleted successfully."
+
+
 @router.get("/wardrobe/categories")
-async def get_categories(current_user: dict = Depends(get_current_user)):
+async def get_categories(current_user: UserItem = Depends(get_current_user)):
     user_id = current_user['_id']
     res = {"categories": []}
 
@@ -95,7 +129,7 @@ async def get_categories(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/wardrobe/category/{category}")
-async def get_categories(category: str, current_user: dict = Depends(get_current_user)):
+async def get_categories(category: str, current_user: UserItem = Depends(get_current_user)):
     if category not in category_labels:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -114,3 +148,23 @@ async def get_categories(category: str, current_user: dict = Depends(get_current
 @router.get("/wardrobe/available_categories")
 async def get_available_categories():
     return category_labels
+
+
+@router.get("/wardrobe/search/{search_term}")
+async def get_categories(search_term=str, current_user: UserItem = Depends(get_current_user)):
+    # Find documents where 'name' contains the search term (case-insensitive)
+    user_id = current_user['_id']
+    items = mongodb.wardrobe.find({
+        "_id": user_id,
+        "$or": [
+            {"name": {"$regex": search_term, "$options": "i"}},
+            {"tags": {"$elemMatch": {"$regex": search_term, "$options": "i"}}}
+        ]
+    })
+
+    res = {"items": []}
+    for item in items:
+        image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+        res["items"].append({"_id": str(item["_id"]), "name": item["name"], "url": image_url})
+
+    return res
