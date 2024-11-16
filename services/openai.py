@@ -21,7 +21,7 @@ class ClothingTagEmbed(BaseModel):  # For catalogue
     clothing_type_embed: list[float]
     color_embed: list[float]
     material_embed: list[float]
-    other_embed: list[list[float]]
+    other_tags_embed: list[list[float]]
 
 
 class WardrobeTag(BaseModel):  # For wardrobe
