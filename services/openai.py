@@ -64,7 +64,7 @@ def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from
     return json.loads(output.choices[0].message.content)
 
 
-def str_to_clothing_tag(prompt: str) -> ClothingTag:
+def str_to_clothing_tag(search: str) -> ClothingTag:
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -82,7 +82,7 @@ def str_to_clothing_tag(prompt: str) -> ClothingTag:
                 "content": [
                     {
                         "type": "text",
-                        "text": prompt
+                        "text": search
                     }
                 ]
             },
@@ -99,10 +99,10 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
         input=tag.color, model="text-embedding-3-large").data[0].embedding
     material_embed = openai_client.embeddings.create(
         input=tag.material, model="text-embedding-3-large").data[0].embedding
-    other_embed = []
+    other_tags_embed = []
     for o in tag.other:
-        other_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
-    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_embed=other_embed)
+        other_tags_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
+    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
 
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
