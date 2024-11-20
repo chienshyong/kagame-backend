@@ -60,9 +60,9 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
             detail=f"An error occurred while fetching items: {str(e)}"
         )
 
-@router.get("/shop/recommendation")
-def get_recommendations(prompt: str, n: int):
-    clothing_tag = str_to_clothing_tag(prompt)
+@router.get("/shop/search")
+def get_search_result(search: str, n: int):
+    clothing_tag = str_to_clothing_tag(search)
     embedding = clothing_tag_to_embedding(clothing_tag)
     recs = list(get_n_closest(embedding, n))
 
