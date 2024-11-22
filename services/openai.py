@@ -62,7 +62,8 @@ def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from
         ],
         response_format=WardrobeTag,
     )
-
+    
+    # TODO(maybe?): Convert it to lowercase by code, in case chatgpt ignores the prompt and puts uppercase chars
     return json.loads(output.choices[0].message.content)
 
 
@@ -91,10 +92,13 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
         ],
         response_format=ClothingTag
     )
+    # TODO(maybe): Convert it to lowercase by code, in case chatgpt ignores the prompt and puts uppercase chars.
     return ClothingTag(**json.loads(output.choices[0].message.content))
 
 
 def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
+    # TODO(maybe): Handle case where the tag is 'NIL'. Use [0,0,0....0]? Keep it as is?
+    
     clothing_type_embed = openai_client.embeddings.create(
         input=tag.clothing_type, model="text-embedding-3-large").data[0].embedding
     color_embed = openai_client.embeddings.create(
