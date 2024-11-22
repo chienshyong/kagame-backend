@@ -1,7 +1,9 @@
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 from services.mongodb import catalogue
+from services.metadata import get_catalogue_metadata
 from pydantic import BaseModel
+import random
 import json
 
 # Hardcoded available categories
@@ -106,12 +108,14 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
 
 
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
-    # TODO(aurel): Implement randomness
     FIRST_STAGE_FILTER_RATIO = 10
     CANDIDATE_TO_LIMIT_RATIO = 10
     CLOTHING_TYPE_WEIGHT = 0.7
     COLOR_WEIGHT = 0.3
-
+    
+    bucket_count =  get_catalogue_metadata().bucket_count
+    bucket_num = random.randint(1, bucket_count)
+    
     pipeline = [
         {
             '$vectorSearch': {
@@ -120,6 +124,7 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
                 'queryVector': tag_embed.clothing_type_embed,
                 'numCandidates': n * FIRST_STAGE_FILTER_RATIO * CANDIDATE_TO_LIMIT_RATIO,
                 'limit': n * FIRST_STAGE_FILTER_RATIO,
+                'filter': {'bucket_num': bucket_num}
             }
         },
         {
@@ -162,6 +167,7 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
                 'name': 1,
                 'category': 1,
                 'color': 1,
+                'clothing_type': 1,
                 'material': 1,
                 'other_tags': 1,
                 'price': 1,
