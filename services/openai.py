@@ -16,7 +16,7 @@ class ClothingTag(BaseModel):  # For catalogue
     clothing_type: str
     color: str
     material: str
-    other: list[str]
+    other_tags: list[str]
 
 
 class ClothingTagEmbed(BaseModel):  # For catalogue
@@ -40,7 +40,7 @@ openai_client = OpenAI(
 
 
 def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from user uploaded image
-    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand)"
+    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand). Give tags in all lowercase."
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -75,7 +75,7 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You'll be given a description for an outfit. Generate tags for this, including clothing type, color, material, other adjectives (eg. occasion, fit, sleeve, brand). If nothing can be inferred for the type or color or material, use \"NIL\". For others tag, keep it as an empty list if nothing can be inferred.."
+                        "text": "You'll be given a description for an outfit. Generate tags for this, including clothing type, color, material, other adjectives (eg. occasion, fit, sleeve, brand). If nothing can be inferred for the type or color or material, use \"NIL\". For others tag, keep it as an empty list if nothing can be inferred. Give tags in all lowercase."
                     }
                 ]
             },
@@ -102,7 +102,7 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
     material_embed = openai_client.embeddings.create(
         input=tag.material, model="text-embedding-3-large").data[0].embedding
     other_tags_embed = []
-    for o in tag.other:
+    for o in tag.other_tags:
         other_tags_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
