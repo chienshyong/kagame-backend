@@ -2,28 +2,27 @@
 
 from services.mongodb import metadata_collection, catalogue, CATALOGUE_COLLECTION_NAME
 from bson import ObjectId
-from typing import TypedDict
+from pydantic import BaseModel
 import random
 from tqdm import tqdm
 
 
-class CatalogueMetadata(TypedDict):  # For catalogue
+class CatalogueMetadata(BaseModel):  # For catalogue
     _id: ObjectId
     collection_name: str = CATALOGUE_COLLECTION_NAME
     bucket_count: int = 1
 
-
 def get_catalogue_metadata() -> CatalogueMetadata:
     result = metadata_collection.find_one_and_update(filter={"collection_name": CATALOGUE_COLLECTION_NAME},
-                                                     update={"$setOnInsert": CatalogueMetadata()},
+                                                     update={"$setOnInsert": CatalogueMetadata().model_dump()},
                                                      upsert=True,
                                                      return_document=True)
-    return result
+    return CatalogueMetadata(**result)
 
 
 def update_catalogue_metadata(metadata: CatalogueMetadata) -> None:
-    return metadata_collection.find_one_and_update(filter={"collection_name": CATALOGUE_COLLECTION_NAME},
-                                            update={"$set": metadata},
+    metadata_collection.find_one_and_update(filter={"collection_name": CATALOGUE_COLLECTION_NAME},
+                                            update={"$set": metadata.model_dump()},
                                             return_document=True)
 
 
@@ -35,5 +34,5 @@ def bucketize_catalogue_items(bucket_count: int):
         bucket_num = random.randint(1, bucket_count)
         catalogue.update_one({"_id": item["_id"]}, {"$set": {"bucket_num": bucket_num}})
     metadata = get_catalogue_metadata()
-    metadata["bucket_count"] = bucket_count
+    metadata.bucket_count = bucket_count
     update_catalogue_metadata(metadata)
