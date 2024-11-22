@@ -90,7 +90,6 @@ def get_similar_items(id: str, n: int = 5):
         if not all(field in product and product[field] for field in required_fields):
             raise HTTPException(status_code=500, detail="Product embeddings not found")
 
-
         # Create a ClothingTagEmbed object from the product's embeddings
         tag_embed = ClothingTagEmbed(
             clothing_type_embed=product.get('clothing_type_embed'),
@@ -99,16 +98,18 @@ def get_similar_items(id: str, n: int = 5):
             other_tags_embed=product.get('other_tags_embed')  # Use 'other_tags_embed' here
         )
 
+        # Fetch the n + 1 closest items to account for possible inclusion of the original item
+        recs = list(get_n_closest(tag_embed, n + 1))
 
-        # Fetch the n closest items
-        recs = list(get_n_closest(tag_embed, n))
-
-        # Prepare the response
+        # Prepare the response, excluding the original item
         response = []
         for rec in recs:
-            rec['_id'] = str(rec['_id'])  # Convert ObjectId to string
+            rec_id_str = str(rec["_id"])
+            if rec_id_str == id:
+                continue  # Skip the original item
+
             item_data = {
-                "id": rec["_id"],
+                "id": rec_id_str,
                 "name": rec.get("name", ""),
                 "category": rec.get("category", ""),
                 "price": rec.get("price", ""),
@@ -120,6 +121,10 @@ def get_similar_items(id: str, n: int = 5):
                 "other_tags": rec.get("other_tags", "")
             }
             response.append(item_data)
+
+            # Break the loop once we have n items
+            if len(response) >= n:
+                break
 
         return response
 
