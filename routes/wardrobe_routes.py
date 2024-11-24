@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, tag2embed_wardrobe
 
 router = APIRouter()
 
@@ -48,6 +48,7 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
     image_name = store_blob(resized_image_arr.getvalue(), f"image/{image.format}")
     image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
     tags = generate_wardrobe_tags(image_url)
+    embeddings = tag2embed_wardrobe(tags['tags'])
 
     # Insert a document into the collection
     document = {
@@ -55,6 +56,7 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
         "name": tags['name'],
         "category": tags['category'],
         "tags": tags['tags'],
+        "tags_embed": embeddings,
         "image_name": image_name
     }
     insert_result = mongodb.wardrobe.insert_one(document)
