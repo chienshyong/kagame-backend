@@ -287,168 +287,54 @@ from typing import List
 
 router = APIRouter()
 
+
 @router.get("/shop/recommendations")
-def get_recommendations(current_user: UserItem = Depends(get_current_user)):
+def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 50):
     user = mongodb.users.find_one({"_id": current_user["_id"]})
-    if not user or 'style_embedding' not in user:
-        raise HTTPException(status_code=400, detail="User style embedding not found.")
-    style_embedding = user['style_embedding']
+    if not user or "user_style" not in user:
+        raise HTTPException(status_code=400, detail="User style not found.")
     
+    user_style_data = user["user_style"]
     try:
-        pipeline = [
-            # Compute dot products between user's style embedding and item's embeddings
-            {
-                "$addFields": {
-                    "clothing_type_score": {
-                        "$let": {
-                            "vars": {
-                                "user_embedding": style_embedding,
-                                "item_embedding": "$clothing_type_embed"
-                            },
-                            "in": {
-                                "$sum": {
-                                    "$map": {
-                                        "input": {"$range": [0, {"$size": "$$user_embedding"}]},
-                                        "as": "idx",
-                                        "in": {
-                                            "$multiply": [
-                                                {"$arrayElemAt": ["$$user_embedding", "$$idx"]},
-                                                {"$arrayElemAt": ["$$item_embedding", "$$idx"]}
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "color_score": {
-                        "$let": {
-                            "vars": {
-                                "user_embedding": style_embedding,
-                                "item_embedding": "$color_embed"
-                            },
-                            "in": {
-                                "$sum": {
-                                    "$map": {
-                                        "input": {"$range": [0, {"$size": "$$user_embedding"}]},
-                                        "as": "idx",
-                                        "in": {
-                                            "$multiply": [
-                                                {"$arrayElemAt": ["$$user_embedding", "$$idx"]},
-                                                {"$arrayElemAt": ["$$item_embedding", "$$idx"]}
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "material_score": {
-                        "$let": {
-                            "vars": {
-                                "user_embedding": style_embedding,
-                                "item_embedding": "$material_embed"
-                            },
-                            "in": {
-                                "$sum": {
-                                    "$map": {
-                                        "input": {"$range": [0, {"$size": "$$user_embedding"}]},
-                                        "as": "idx",
-                                        "in": {
-                                            "$multiply": [
-                                                {"$arrayElemAt": ["$$user_embedding", "$$idx"]},
-                                                {"$arrayElemAt": ["$$item_embedding", "$$idx"]}
-                                            ]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "other_tags_score": {
-                        "$let": {
-                            "vars": {
-                                "user_embedding": style_embedding,
-                                "item_embeddings": "$other_tags_embed"
-                            },
-                            "in": {
-                                "$sum": {
-                                    "$map": {
-                                        "input": "$$item_embeddings",
-                                        "as": "item_embed",
-                                        "in": {
-                                            "$sum": {
-                                                "$map": {
-                                                    "input": {"$range": [0, {"$size": "$$user_embedding"}]},
-                                                    "as": "idx",
-                                                    "in": {
-                                                        "$multiply": [
-                                                            {"$arrayElemAt": ["$$user_embedding", "$$idx"]},
-                                                            {"$arrayElemAt": ["$$item_embed", "$$idx"]}
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            # Calculate the overall similarity score
-            {
-                "$addFields": {
-                    "similarity_score": {
-                        "$add": [
-                            {"$multiply": [0.4, "$clothing_type_score"]},
-                            {"$multiply": [0.3, "$color_score"]},
-                            {"$multiply": [0.2, "$material_score"]},
-                            {"$multiply": [0.1, "$other_tags_score"]}
-                        ]
-                    }
-                }
-            },
-            # Sort items by similarity score in descending order
-            {
-                "$sort": {"similarity_score": -1}
-            },
-            # Limit to top 50 items
-            {
-                "$limit": 50
-            },
-            # Project the necessary fields
-            {
-                "$project": {
-                    "_id": 1,
-                    "name": 1,
-                    "category": 1,
-                    "clothing_type": 1,
-                    "color": 1,
-                    "material": 1,
-                    "other_tags": 1,
-                    "price": 1,
-                    "image_url": 1,
-                    "product_url": 1,
-                    "retailer": 1,
-                    "gender": 1,
-                    "similarity_score": 1  # Include for debugging
-                }
-            }
-        ]
-
-        recommendations = list(mongodb.catalogue.aggregate(pipeline))
-        
-        # Convert ObjectId to string and remove '_id' field
-        for rec in recommendations:
-            rec['id'] = str(rec['_id'])
-            del rec['_id']
-
-        return recommendations
-
+        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while fetching recommendations: {str(e)}"
+            status_code=500, detail=f"Error parsing user style: {str(e)}"
         )
+    
+    recommendations = []
+    item_ids = set()
+    styles_count = len(user_style.top_styles)
+    if styles_count == 0:
+        raise HTTPException(status_code=400, detail="No styles found in user style analysis.")
+
+    items_per_style = max(n // styles_count, 1)
+    
+    for style_suggestion in user_style.top_styles:
+        style_prompt = f"{style_suggestion.style}: {style_suggestion.description}"
+        clothing_tag = str_to_clothing_tag(style_prompt)
+        tag_embed = clothing_tag_to_embedding(clothing_tag)
+        recs = list(get_n_closest(tag_embed, items_per_style))
+        for rec in recs:
+            rec_id_str = str(rec["_id"])
+            if rec_id_str in item_ids:
+                continue  # Skip duplicates
+            item_ids.add(rec_id_str)
+            item_data = {
+                "id": rec_id_str,
+                "name": rec.get("name", ""),
+                "category": rec.get("category", ""),
+                "price": rec.get("price", ""),
+                "image_url": rec.get("image_url", ""),
+                "product_url": rec.get("product_url", ""),
+                "clothing_type": rec.get("clothing_type", ""),
+                "color": rec.get("color", ""),
+                "material": rec.get("material", ""),
+                "other_tags": rec.get("other_tags", "")
+            }
+            recommendations.append(item_data)
+            if len(recommendations) >= n:
+                break
+        if len(recommendations) >= n:
+            break
+    return recommendations
