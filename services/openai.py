@@ -102,7 +102,8 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
     other_embed = []
     for o in tag.other:
         other_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
-    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_embed=other_embed)
+    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_embed  # Corrected field name
+)
 
 
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
