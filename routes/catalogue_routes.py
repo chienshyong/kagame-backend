@@ -12,6 +12,12 @@ from bson import ObjectId
 from services.user import get_current_user
 from typing import Optional, List
 from pydantic import BaseModel
+from pydantic import BaseModel
+from services.mongodb import UserItem
+from typing import Optional
+from openai import OpenAI
+from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
+import json
 
 router = APIRouter()
 
@@ -146,16 +152,6 @@ def get_similar_items(id: str, n: int = 5):
             detail=f"An error occurred while fetching similar items: {str(e)}"
         )
 
-from fastapi import APIRouter, Depends, HTTPException, status
-import services.mongodb as mongodb
-from pydantic import BaseModel
-from services.mongodb import UserItem
-from typing import Optional
-from openai import OpenAI
-from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
-import json
-
-router = APIRouter()
 
 # Initialize the OpenAI client
 openai_client = OpenAI(
@@ -278,14 +274,6 @@ def get_user_style_embedding(current_user: UserItem = Depends(get_current_user))
     )
 
     return {"embedding": embedding}
-
-from fastapi import APIRouter, Depends, HTTPException
-import services.mongodb as mongodb
-from services.user import get_current_user
-from services.mongodb import UserItem
-from typing import List
-
-router = APIRouter()
 
 
 @router.get("/shop/recommendations")
