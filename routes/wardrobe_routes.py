@@ -49,11 +49,13 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
     image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
     tags = generate_wardrobe_tags(image_url)
     embeddings = tag2embed_wardrobe(tags['tags'])
+    name_embed = tag2embed_wardrobe([tags['name']])
 
     # Insert a document into the collection
     document = {
         "user_id": current_user['_id'],
         "name": tags['name'],
+        "name_embed": "hi",
         "category": tags['category'],
         "tags": tags['tags'],
         "tags_embed": embeddings,
