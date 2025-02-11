@@ -21,7 +21,8 @@ class CatalogueItem(BaseModel):
     image_url: str
     product_url: str
     retailer: str
-    gender: Literal['F', 'M', 'U']  # Female, Male, Unisex
+    gender: Literal['F', 'M', 'U'] = 'U'  # Female, Male, Unisex
+    bucket_num: int = 1
 
 
 class UserItem(BaseModel):
@@ -47,3 +48,9 @@ db = client.kagame
 catalogue = db.catalogue
 users = db.users
 wardrobe = db.wardrobe
+metadata_collection = db.metadata
+
+CATALOGUE_COLLECTION_NAME = "catalogue"
+USERS_COLLECTION_NAME = "users"
+WARDROBE_COLLECTION_NAME = "wardrobe"
+METADATA_COLLECTION_NAME = "metadata"

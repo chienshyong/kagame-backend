@@ -1,7 +1,9 @@
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 from services.mongodb import catalogue
+from services.metadata import get_catalogue_metadata
 from pydantic import BaseModel
+import random
 import json
 
 # Hardcoded available categories
@@ -14,7 +16,7 @@ class ClothingTag(BaseModel):  # For catalogue
     clothing_type: str
     color: str
     material: str
-    other: list[str]
+    other_tags: list[str]
 
 
 class ClothingTagEmbed(BaseModel):  # For catalogue
@@ -38,7 +40,7 @@ openai_client = OpenAI(
 
 
 def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from user uploaded image
-    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand)"
+    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand). Give tags in all lowercase."
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -60,11 +62,12 @@ def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from
         ],
         response_format=WardrobeTag,
     )
-
+    
+    # TODO(maybe?): Convert it to lowercase by code, in case chatgpt ignores the prompt and puts uppercase chars
     return json.loads(output.choices[0].message.content)
 
 
-def str_to_clothing_tag(prompt: str) -> ClothingTag:
+def str_to_clothing_tag(search: str) -> ClothingTag:
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -73,7 +76,7 @@ def str_to_clothing_tag(prompt: str) -> ClothingTag:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You'll be given a description for an outfit. Generate tags for this, including clothing type, color, material, other adjectives (eg. occasion, fit, sleeve, brand). If nothing can be inferred for the type or color or material, use \"NIL\". For others tag, keep it as an empty list if nothing can be inferred.."
+                        "text": "You'll be given a description for an outfit. Generate tags for this, including clothing type, color, material, other adjectives (eg. occasion, fit, sleeve, brand). If nothing can be inferred for the type or color or material, use \"NIL\". For others tag, keep it as an empty list if nothing can be inferred. Give tags in all lowercase."
                     }
                 ]
             },
@@ -82,37 +85,41 @@ def str_to_clothing_tag(prompt: str) -> ClothingTag:
                 "content": [
                     {
                         "type": "text",
-                        "text": prompt
+                        "text": search
                     }
                 ]
             },
         ],
         response_format=ClothingTag
     )
+    # TODO(maybe): Convert it to lowercase by code, in case chatgpt ignores the prompt and puts uppercase chars.
     return ClothingTag(**json.loads(output.choices[0].message.content))
 
 
 def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
+    # TODO(maybe): Handle case where the tag is 'NIL'. Use [0,0,0....0]? Keep it as is?
+    
     clothing_type_embed = openai_client.embeddings.create(
         input=tag.clothing_type, model="text-embedding-3-large").data[0].embedding
     color_embed = openai_client.embeddings.create(
         input=tag.color, model="text-embedding-3-large").data[0].embedding
     material_embed = openai_client.embeddings.create(
         input=tag.material, model="text-embedding-3-large").data[0].embedding
-    other_embed = []
-    for o in tag.other:
-        other_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
-    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_embed  # Corrected field name
-)
+    other_tags_embed = []
+    for o in tag.other_tags:
+        other_tags_embed.append(openai_client.embeddings.create(input=o, model="text-embedding-3-large").data[0].embedding)
+    return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
 
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
-    # TODO(aurel): Implement randomness
     FIRST_STAGE_FILTER_RATIO = 10
     CANDIDATE_TO_LIMIT_RATIO = 10
     CLOTHING_TYPE_WEIGHT = 0.7
     COLOR_WEIGHT = 0.3
-
+    
+    bucket_count =  get_catalogue_metadata().bucket_count
+    bucket_num = random.randint(1, bucket_count)
+    
     pipeline = [
         {
             '$vectorSearch': {
@@ -121,6 +128,7 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
                 'queryVector': tag_embed.clothing_type_embed,
                 'numCandidates': n * FIRST_STAGE_FILTER_RATIO * CANDIDATE_TO_LIMIT_RATIO,
                 'limit': n * FIRST_STAGE_FILTER_RATIO,
+                'filter': {'bucket_num': bucket_num}
             }
         },
         {
@@ -163,6 +171,7 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
                 'name': 1,
                 'category': 1,
                 'color': 1,
+                'clothing_type': 1,
                 'material': 1,
                 'other_tags': 1,
                 'price': 1,
