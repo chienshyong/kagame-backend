@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 import services.mongodb as mongodb
 from services.openai import (
     str_to_clothing_tag,
@@ -11,10 +11,8 @@ from services.openai import (
 from bson import ObjectId
 from services.user import get_current_user
 from typing import Optional, List
-from pydantic import BaseModel
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from services.mongodb import UserItem
-from typing import Optional
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 import json
@@ -326,3 +324,419 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         if len(recommendations) >= n:
             break
     return recommendations
+
+# -------------------------------------------------------------------
+# 1) "Loose" models for OpenAI parse (no advanced constraints)
+# -------------------------------------------------------------------
+
+class LooseRecommendedItem(BaseModel):
+    name: str
+    color: List[str]
+    material: List[str]
+    other_tags: List[str]
+    reason: str
+
+class LooseOutfitRecommendation(BaseModel):
+    style: str
+    description: str
+    name: str
+    items: List[LooseRecommendedItem]
+
+class LooseStylingLLMResponse(BaseModel):
+    outfits: List[LooseOutfitRecommendation]
+
+# -------------------------------------------------------------------
+# 2) "Strict" models for post-parse validation (with constraints)
+# -------------------------------------------------------------------
+
+class StrictRecommendedItem(BaseModel):
+    name: str
+    color: List[str]
+    material: List[str]
+    other_tags: List[str]
+    reason: str
+
+    def validate_tags(self):
+        # At least 1 color tags
+        if len(self.color) < 1:
+            raise ValueError(
+                f"'color' must have at least 1 tag, got {len(self.color)}."
+            )
+        # At least 1 material tag
+        if len(self.material) < 1:
+            raise ValueError(
+                f"'material' must have at least 1 tag, got {len(self.material)}."
+            )
+        # At least 10 'other_tags'
+        if len(self.other_tags) < 5:
+            raise ValueError(
+                f"'other_tags' must have at least 10 tags, got {len(self.other_tags)}."
+            )
+
+class StrictOutfitRecommendation(BaseModel):
+    style: str
+    description: str
+    name: str
+    items: List[StrictRecommendedItem]
+
+    def validate_items(self):
+        for item in self.items:
+            item.validate_tags()
+
+class StrictStylingLLMResponse(BaseModel):
+    outfits: List[StrictOutfitRecommendation]
+
+    def validate_outfits(self):
+        for outfit in self.outfits:
+            outfit.validate_items()
+
+# -------------------------------------------------------------------
+# 3) The /shop/item-styling route
+# -------------------------------------------------------------------
+
+@router.get("/shop/item-styling")
+def get_item_styling(item_id: str, current_user: UserItem = Depends(get_current_user)):
+    """
+    Generates 3 outfits based on the user's style and a chosen item.
+    Each outfit is returned in a JSON structure with (style, description, name, items[]).
+    Each item has color, material, other_tags, etc. with constraints.
+    
+    We do a two-step parse:
+      1. Parse with LooseStylingLLMResponse (no advanced constraints).
+      2. Validate & parse again with StrictStylingLLMResponse.
+    """
+    # 1) Fetch the item from catalogue
+    try:
+        object_id = ObjectId(item_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid item_id format")
+
+    product = mongodb.catalogue.find_one({"_id": object_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found with given id")
+
+    # 2) Fetch the user's style
+    user = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user or "user_style" not in user:
+        raise HTTPException(status_code=400, detail="User style not found.")
+
+    user_style_data = user["user_style"]
+    try:
+        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error parsing user style: {str(e)}")
+
+    # 3) Determine pairing instructions based on clothing_type
+    clothing_type = (product.get("clothing_type") or "").lower()
+    if clothing_type in ["top", "shirt", "blouse", "tank top", "camisole top", "t-shirt"]:
+        pairing_instructions = (
+            "Because this item is a top, recommend (1) a bottom and (2) shoes."
+        )
+    elif clothing_type in ["bottom", "pants", "jeans", "leggings", "shorts", "skirt"]:
+        pairing_instructions = (
+            "Because this item is a bottom, recommend (1) a top and (2) shoes."
+        )
+    elif clothing_type in ["shoes", "heels", "sneakers", "boots"]:
+        pairing_instructions = (
+            "Because this item is shoes, recommend (1) a top and (2) a bottom."
+        )
+    else:
+        pairing_instructions = (
+            "Please recommend two items that complement this piece for a cohesive outfit."
+        )
+
+    # 4) Gather the text for the 3 user styles
+    top_styles_instructions = []
+    for style_info in user_style.top_styles:
+        top_styles_instructions.append(
+            f"Style: {style_info.style}\nDescription: {style_info.description}"
+        )
+    styles_text = "\n\n".join(top_styles_instructions)
+
+    # 5) Build the system & user messages for the LLM
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are a helpful fashion assistant. "
+            "We have exactly 3 user styles, plus 1 chosen clothing item. "
+            "For each of the 3 styles, build an outfit that:\n"
+            "  1) Includes the already-chosen item.\n"
+            "  2) Recommends 2 additional items, each with:\n"
+            "     - name (string)\n"
+            "     - color (array of strings, give at least 3 colours)\n"
+            "     - material (array of strings)\n"
+            "     - other_tags (array of strings, give at least 10 tags)\n"
+            "     - reason (string)\n"
+            "  3) The top-level JSON must have 'outfits' array. Each outfit has:\n"
+            "     - 'style', 'description', 'name', 'items'.\n\n"
+            "No extra keys, no commentary; only a valid JSON object that matches:\n"
+            "{\n"
+            "  \"outfits\": [\n"
+            "    {\n"
+            "      \"style\": \"...\",\n"
+            "      \"description\": \"...\",\n"
+            "      \"name\": \"...\",\n"
+            "      \"items\": [\n"
+            "        {\"name\": \"...\", \"color\": [...], ...},\n"
+            "        {...}\n"
+            "      ]\n"
+            "    },\n"
+            "    ... (2 more outfits)...\n"
+            "  ]\n"
+            "}"
+        )
+    }
+
+    user_message_content = (
+        f"User's top 3 styles:\n\n{styles_text}\n\n"
+        f"Chosen item:\n"
+        f"- Name: {product.get('name', '')}\n"
+        f"- Clothing Type: {product.get('clothing_type', '')}\n"
+        f"- Color: {product.get('color', '')}\n"
+        f"- Material: {product.get('material', '')}\n"
+        f"- Other Tags: {product.get('other_tags', [])}\n\n"
+        f"{pairing_instructions}\n\n"
+        "We only want the JSON response with the structure described above. "
+        "No additional commentary."
+    )
+
+    user_message = {
+        "role": "user",
+        "content": user_message_content
+    }
+
+    messages = [system_message, user_message]
+
+    # 6) First parse: using LooseStylingLLMResponse (no advanced constraints)
+    try:
+        completion = openai_client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=messages,
+            response_format=LooseStylingLLMResponse
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not completion or not completion.choices:
+        raise HTTPException(status_code=500, detail="No response from OpenAI")
+
+    # Extract the parsed 'loose' data
+    loose_data = completion.choices[0].message.parsed  # -> LooseStylingLLMResponse
+
+    # 7) Second parse: Now validate with the strict constraints
+    data_dict = loose_data.dict()
+    try:
+        strict_response = StrictStylingLLMResponse.parse_obj(data_dict)
+        # Perform custom validations
+        strict_response.validate_outfits()
+    except ValidationError as ve:
+        raise HTTPException(status_code=400, detail=f"Pydantic validation error: {ve}")
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+
+    # 8) If all is good, return the strictly validated data
+    return strict_response.dict()
+
+
+@router.get("/shop/tag-search")
+def get_tag_search(
+    tags: List[str] = Query(..., description="List of tags to vector-search on"),
+    n: int = 10
+):
+    """
+    Perform a vector search against the shop catalogue, based on a list of tags.
+    Example call:
+      GET /shop/tag-search?tags=floral&tags=maxi&tags=romantic&n=5
+    Returns up to 'n' closest items from the catalogue.
+    """
+    # 1) Combine tags into a single textual prompt
+    #    e.g. "floral maxi romantic" → a single textual representation
+    combined_tags_text = " ".join(tags)
+
+    # 2) Convert that text to a "clothing tag" object, then to an embedding
+    clothing_tag = str_to_clothing_tag(combined_tags_text)
+    tag_embedding = clothing_tag_to_embedding(clothing_tag)
+
+    # 3) Get the n closest items from the catalogue
+    recs = list(get_n_closest(tag_embedding, n))
+
+    # 4) Transform each record into a JSON-serializable dict
+    response = []
+    for rec in recs:
+        rec_id_str = str(rec["_id"])
+        item_data = {
+            "id": rec_id_str,
+            "name": rec.get("name", ""),
+            "category": rec.get("category", ""),
+            "price": rec.get("price", ""),
+            "image_url": rec.get("image_url", ""),
+            "product_url": rec.get("product_url", ""),
+            "clothing_type": rec.get("clothing_type", ""),
+            "color": rec.get("color", ""),
+            "material": rec.get("material", ""),
+            "other_tags": rec.get("other_tags", "")
+        }
+        response.append(item_data)
+
+    return response
+
+##############################
+# Input Models for Outfit Search
+##############################
+
+class RecommendedItemInput(BaseModel):
+    name: str
+    color: List[str]
+    material: List[str]
+    other_tags: List[str]
+    reason: str
+
+class OutfitInput(BaseModel):
+    style: str
+    description: str
+    name: str
+    items: List[RecommendedItemInput]
+
+class OutfitSearchRequest(BaseModel):
+    outfits: List[OutfitInput]
+
+##############################
+# Output Models for Matched Catalog Items
+##############################
+
+class CatalogItem(BaseModel):
+    """
+    A minimal set of fields from your catalogue for a matched item.
+    The fields color, material, and other_tags are lists of strings.
+    """
+    id: str
+    name: str
+    category: str
+    price: float
+    image_url: str
+    product_url: str
+    clothing_type: str
+    color: List[str]
+    material: List[str]
+    other_tags: List[str]
+
+class OutfitSearchMatchedItem(BaseModel):
+    """
+    Wraps the original LLM-recommended item and its matched catalogue item.
+    """
+    original: RecommendedItemInput
+    match: CatalogItem
+
+class OutfitSearchResult(BaseModel):
+    style: str
+    description: str
+    name: str
+    items: List[OutfitSearchMatchedItem]
+
+class OutfitSearchResponse(BaseModel):
+    outfits: List[OutfitSearchResult]
+
+##############################
+# Helper Function
+##############################
+
+def ensure_list(value) -> List[str]:
+    """
+    Ensures that the input value is returned as a list of strings.
+    If the value is already a list, it is returned unchanged.
+    If it is a string, it is wrapped into a list.
+    Otherwise, an empty list is returned.
+    """
+    if isinstance(value, list):
+        return value
+    elif isinstance(value, str):
+        return [value]
+    else:
+        return []
+
+##############################
+# /shop/outfit-search Route
+##############################
+
+@router.post("/shop/outfit-search")
+def outfit_search(payload: OutfitSearchRequest) -> OutfitSearchResponse:
+    """
+    Takes an outfit recommendation (in the same format as generated by your
+    /shop/item-styling route) and reconstructs each recommended item by performing
+    a vector search on your shop catalogue.
+
+    For each recommended item:
+      - Combine its name, color, material, and other_tags into a single text prompt.
+      - Generate an embedding from this prompt.
+      - Use that embedding to retrieve the best match from the catalogue.
+    
+    Returns the outfit structure with each recommended item augmented by its best catalog match.
+    """
+    results: List[OutfitSearchResult] = []
+
+    for outfit in payload.outfits:
+        matched_items: List[OutfitSearchMatchedItem] = []
+
+        for recommended_item in outfit.items:
+            # 1) Combine the recommended item fields into a single text prompt.
+            text_parts = [
+                recommended_item.name,
+                *recommended_item.color,
+                *recommended_item.material,
+                *recommended_item.other_tags,
+            ]
+            prompt_text = " ".join(text_parts)
+
+            # 2) Generate an embedding from the combined text.
+            clothing_tag = str_to_clothing_tag(prompt_text)
+            embedding = clothing_tag_to_embedding(clothing_tag)
+
+            # 3) Use the embedding to find the best matching item in the catalogue.
+            recs = list(get_n_closest(embedding, 1))  # Get 1 best match
+            if recs:
+                best = recs[0]
+                match_item = CatalogItem(
+                    id=str(best["_id"]),
+                    name=best.get("name", ""),
+                    category=best.get("category", ""),
+                    price=best.get("price", 0.0),
+                    image_url=best.get("image_url", ""),
+                    product_url=best.get("product_url", ""),
+                    clothing_type=best.get("clothing_type", ""),
+                    # Ensure these fields are lists. If they're strings, convert them.
+                    color=ensure_list(best.get("color", [])),
+                    material=ensure_list(best.get("material", [])),
+                    other_tags=ensure_list(best.get("other_tags", []))
+                )
+            else:
+                # If no match is found, return a placeholder.
+                match_item = CatalogItem(
+                    id="",
+                    name="No Match Found",
+                    category="",
+                    price=0.0,
+                    image_url="",
+                    product_url="",
+                    clothing_type="",
+                    color=[],
+                    material=[],
+                    other_tags=[]
+                )
+
+            matched_items.append(
+                OutfitSearchMatchedItem(
+                    original=recommended_item,
+                    match=match_item
+                )
+            )
+
+        results.append(
+            OutfitSearchResult(
+                style=outfit.style,
+                description=outfit.description,
+                name=outfit.name,
+                items=matched_items
+            )
+        )
+
+    return OutfitSearchResponse(outfits=results)
