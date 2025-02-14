@@ -12,52 +12,117 @@ category_labels = ["Tops", "Bottoms", "Dresses", "Shoes", "Jackets", "Accessorie
 # Fixed formats which GPT4 will force to return
 
 create_outfit_tool = {
-    "type": "function",
-    "function": {
+      "type": "function",
+      "function": {
         "name": "create_outfit",
         "description": "Assembles an outfit consisting of top, bottom, and shoes with specified attributes.",
         "parameters": {
-            "type": "object",
-            "required": ["top", "bottom", "shoes"],
-            "properties": {
-                "top": {
-                    "type": "object",
-                    "required": ["clothing_type", "colour", "material", "other_tags"],
-                    "properties": {
-                        "clothing_type": {"type": "string", "description": "Type of clothing for the top"},
-                        "colour": {"type": "string", "description": "Color of the top garment"},
-                        "material": {"type": "string", "description": "Material from which the top is made"},
-                        "other_tags": {"type": "string", "description": "Description of the style of the top"}
-                    },
-                    "additionalProperties": False
+          "type": "object",
+          "required": [
+            "top",
+            "shoes",
+            "bottom"
+          ],
+          "properties": {
+            "top": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the top garment"
                 },
-                "bottom": {
-                    "type": "object",
-                    "required": ["clothing_type", "colour", "material", "other_tags"],
-                    "properties": {
-                        "clothing_type": {"type": "string", "description": "Type of clothing for the bottom"},
-                        "colour": {"type": "string", "description": "Color of the bottom garment"},
-                        "material": {"type": "string", "description": "Material from which the bottom is made"},
-                        "other_tags": {"type": "string", "description": "Description of the style of the bottom"}
-                    },
-                    "additionalProperties": False
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the top is made"
                 },
-                "shoes": {
-                    "type": "object",
-                    "required": ["clothing_type", "colour", "material", "other_tags"],
-                    "properties": {
-                        "clothing_type": {"type": "string", "description": "Type of shoes"},
-                        "colour": {"type": "string", "description": "Color of the shoes"},
-                        "material": {"type": "string", "description": "Material from which the shoes are made"},
-                        "other_tags": {"type": "string", "description": "Description of the style of the shoes"}
-                    },
-                    "additionalProperties": False
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the top",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of clothing for the top"
                 }
+              },
+              "additionalProperties": False
             },
-            "additionalProperties": False
-        }
+            "shoes": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the shoes"
+                },
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the shoes are made"
+                },
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the shoes",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of shoes"
+                }
+              },
+              "additionalProperties": False
+            },
+            "bottom": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the bottom garment"
+                },
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the bottom is made"
+                },
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the bottom",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of clothing for the bottom"
+                }
+              },
+              "additionalProperties": False
+            }
+          },
+          "additionalProperties": False
+        },
+        "strict": True
+      }
     }
-}
 
 class ClothingTag(BaseModel):  # For catalogue
     clothing_type: str
@@ -158,17 +223,17 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
     return ClothingTag(**json.loads(output.choices[0].message.content))
 
 #TODO: safety to not prompt inject the additional prompt
-def generate_outfit_recommendations(item: ClothingTag, additional_prompt: str) -> ClothingTag:
-    age = UserPersona.age
-    gender = UserPersona.gender
-    skin_tone = UserPersona.skin_tone
-    style = UserPersona.style
-    preferences = UserPersona.preferences
+def generate_outfit_recommendations(item: ClothingTag, additional_prompt: str,user) -> ClothingTag:
+    age = user.age
+    gender = user.gender
+    skin_tone = user.skin_tone
+    style = user.style
+    preferences = user.preferences
 
     #making a nice sentence about user preferences to inclcude in prompt
     parts = []
-    if preferences != {}:
-        users_preferences = ""
+    if preferences == {}:
+        user_preferences = ""
     else:
         if preferences['tops']:
             parts.append(f"{', '.join(preferences['tops'])}")
@@ -202,23 +267,30 @@ def generate_outfit_recommendations(item: ClothingTag, additional_prompt: str) -
         tools = [create_outfit_tool],
         tool_choice = {"type": "function", "function": {"name": "create_outfit"}})
     
-    parsed_response = json.loads(response.choices[0].message.content)
-    top = ClothingTag(**parsed_response['top'])
-    bottom = ClothingTag(**parsed_response['bottom'])
-    shoes = ClothingTag(**parsed_response['shoes'])
+    parsed_response = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+    top = parsed_response['top']
+    bottom = parsed_response['bottom']
+    shoes = parsed_response['shoes']
+
+    top = ClothingTag(**{**top, 'other_tags': list(top['other_tags'])})
+    bottom = ClothingTag(**{**bottom, 'other_tags': list(bottom['other_tags'])})
+    shoes = ClothingTag(**{**shoes, 'other_tags': list(shoes['other_tags'])})
 
 
-    #recommendations: {'item':ClothingTag, recommended: [{'top':clothingTag, 'bottom':clothingTag, 'shoes':clothingTag}]}
-    recommended = UserPersona.recommendations['recommended']
+    # recommended = {'item':item, recommended: [{'top':top, 'bottom':bottom, 'shoes':shoes}]}
+    if user.recommendations == {}:
+        recommended = []
+    else:
+        recommended = user.recommendations['recommended']
 
-    #we only want to keep information about the last 3 recommendations
+    # #we only want to keep information about the last 3 recommendations
     if len(recommended) < 3:
         recommended.append({'top': top, 'bottom': bottom, 'shoes': shoes})
     else:
         recommended.pop(0)
         recommended.append({'top': top, 'bottom': bottom, 'shoes': shoes})
 
-    UserPersona.recommendations = {'item': item, 'recommended': recommended}
+    user.recommendations = {'item': item, 'recommended': recommended}
     return top, bottom, shoes
 
 def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
