@@ -155,7 +155,7 @@ async def get_categories(search_term=str, current_user: UserItem = Depends(get_c
     # Find documents where 'name' contains the search term (case-insensitive)
     user_id = current_user['_id']
     items = mongodb.wardrobe.find({
-        "_id": user_id,
+        "user_id": user_id,
         "$or": [
             {"name": {"$regex": search_term, "$options": "i"}},
             {"tags": {"$elemMatch": {"$regex": search_term, "$options": "i"}}}
