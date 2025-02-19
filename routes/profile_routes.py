@@ -5,19 +5,20 @@ from pydantic import BaseModel
 from io import BytesIO
 from services.user import get_current_user
 from bson import ObjectId
+from typing import Optional
 
 router = APIRouter()
 
 class UserProfile(BaseModel):
-    gender: str | None = None
-    birthday: str | None = None
-    location: str | None = None
-    height: str | None = None
-    weight: str | None = None
-    ethnicity: str | None = None
-    skin_tone: str | None = None
-    style: str | None = None
-    happiness_current_wardrobe: str | None = None
+    gender: Optional[str] = None
+    birthday: Optional[str] = None
+    location: Optional[str] = None
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    ethnicity: Optional[str] = None
+    skin_tone: Optional[str] = None
+    style: Optional[str] = None
+    happiness_current_wardrobe: Optional[str] = None
 
 @router.get("/profile/retrieve", response_model=UserProfile)
 async def get_user_profile(current_user: UserItem = Depends(get_current_user)):
