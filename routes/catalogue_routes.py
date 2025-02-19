@@ -740,3 +740,245 @@ def outfit_search(payload: OutfitSearchRequest) -> OutfitSearchResponse:
         )
 
     return OutfitSearchResponse(outfits=results)
+
+@router.get("/shop/item-outfit-search")
+def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_current_user)) -> OutfitSearchResponse:
+    """
+    1) Generate 3 outfits for the specified item (like /shop/item-styling).
+    2) For each recommended item in each outfit, retrieve the best catalog match (like /shop/outfit-search).
+    3) Return the final structure with matched items (including image_url, etc.).
+    """
+
+    # -------------------------------------------------------
+    #  Fetch the chosen item from the catalogue
+    # -------------------------------------------------------
+    try:
+        object_id = ObjectId(item_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid item_id format")
+
+    product = mongodb.catalogue.find_one({"_id": object_id})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found with given id")
+
+    # -------------------------------------------------------
+    #  Fetch the user's style
+    # -------------------------------------------------------
+    user = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user or "user_style" not in user:
+        raise HTTPException(status_code=400, detail="User style not found.")
+
+    user_style_data = user["user_style"]
+    try:
+        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error parsing user style: {str(e)}"
+        )
+
+    # -------------------------------------------------------
+    #  Determine pairing instructions based on clothing_type
+    # -------------------------------------------------------
+    clothing_type = (product.get("clothing_type") or "").lower()
+    if clothing_type in ["top", "shirt", "blouse", "tank top", "camisole top", "t-shirt"]:
+        pairing_instructions = (
+            "Because this item is a top, recommend (1) a bottom and (2) shoes."
+        )
+    elif clothing_type in ["bottom", "pants", "jeans", "leggings", "shorts", "skirt"]:
+        pairing_instructions = (
+            "Because this item is a bottom, recommend (1) a top and (2) shoes."
+        )
+    elif clothing_type in ["shoes", "heels", "sneakers", "boots"]:
+        pairing_instructions = (
+            "Because this item is shoes, recommend (1) a top and (2) a bottom."
+        )
+    else:
+        pairing_instructions = (
+            "Please recommend two items that complement this piece for a cohesive outfit."
+        )
+
+    # -------------------------------------------------------
+    #  Prepare text for user’s top styles
+    # -------------------------------------------------------
+    top_styles_instructions = []
+    for style_info in user_style.top_styles:
+        top_styles_instructions.append(
+            f"Style: {style_info.style}\nDescription: {style_info.description}"
+        )
+    styles_text = "\n\n".join(top_styles_instructions)
+
+    # -------------------------------------------------------
+    #  Build the LLM prompts
+    # -------------------------------------------------------
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are a helpful fashion assistant. "
+            "We have exactly 3 user styles, plus 1 chosen clothing item. "
+            "For each of the 3 styles, build an outfit that:\n"
+            "  1) Includes the already-chosen item.\n"
+            "  2) Recommends 2 additional items, each with:\n"
+            "     - name (string)\n"
+            "     - color (array of strings, at least 3)\n"
+            "     - material (array of strings)\n"
+            "     - other_tags (array of strings, at least 10)\n"
+            "     - reason (string)\n"
+            "  3) The top-level JSON must have 'outfits' array. Each outfit has:\n"
+            "     - 'style', 'description', 'name', 'items'.\n\n"
+            "No extra keys, no commentary; only a valid JSON object that matches:\n"
+            "{\n"
+            "  \"outfits\": [\n"
+            "    {\n"
+            "      \"style\": \"...\",\n"
+            "      \"description\": \"...\",\n"
+            "      \"name\": \"...\",\n"
+            "      \"items\": [\n"
+            "        {\"name\": \"...\", \"color\": [...], ...},\n"
+            "        {...}\n"
+            "      ]\n"
+            "    },\n"
+            "    ... (2 more outfits)...\n"
+            "  ]\n"
+            "}"
+        )
+    }
+
+    user_message_content = (
+        f"User's top 3 styles:\n\n{styles_text}\n\n"
+        f"Chosen item:\n"
+        f"- Name: {product.get('name', '')}\n"
+        f"- Clothing Type: {product.get('clothing_type', '')}\n"
+        f"- Color: {product.get('color', '')}\n"
+        f"- Material: {product.get('material', '')}\n"
+        f"- Other Tags: {product.get('other_tags', [])}\n\n"
+        f"{pairing_instructions}\n\n"
+        "We only want the JSON response with the structure described above. "
+        "No additional commentary."
+    )
+    user_message = {"role": "user", "content": user_message_content}
+
+    messages = [system_message, user_message]
+
+    # -------------------------------------------------------
+    #  Step 1: LLM call for LooseStylingLLMResponse
+    # -------------------------------------------------------
+    try:
+        completion = openai_client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=messages,
+            response_format=LooseStylingLLMResponse
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not completion or not completion.choices:
+        raise HTTPException(status_code=500, detail="No response from OpenAI")
+
+    loose_data = completion.choices[0].message.parsed  # LooseStylingLLMResponse
+
+    # -------------------------------------------------------
+    #  Step 2: Validate with StrictStylingLLMResponse
+    # -------------------------------------------------------
+    data_dict = loose_data.dict()
+    try:
+        strict_response = StrictStylingLLMResponse.parse_obj(data_dict)
+        strict_response.validate_outfits()  # Additional custom validations
+    except ValidationError as ve:
+        raise HTTPException(status_code=400, detail=f"Pydantic validation error: {ve}")
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err))
+
+    # -------------------------------------------------------
+    #  Step 3: Perform outfit-search-like logic to find best matches
+    # -------------------------------------------------------
+    # Reuse the code logic of outfit_search by constructing an OutfitSearchRequest.
+    request_payload = OutfitSearchRequest(outfits=[
+        OutfitInput(
+            style=o.style,
+            description=o.description,
+            name=o.name,
+            items=[
+                RecommendedItemInput(
+                    name=i.name,
+                    color=i.color,
+                    material=i.material,
+                    other_tags=i.other_tags,
+                    reason=i.reason
+                )
+                for i in o.items
+            ]
+        )
+        for o in strict_response.outfits
+    ])
+
+    # Manually replicate or reuse the core matching logic from outfit_search:
+    final_outfits: List[OutfitSearchResult] = []
+
+    for outfit in request_payload.outfits:
+        matched_items: List[OutfitSearchMatchedItem] = []
+        for recommended_item in outfit.items:
+            # Combine recommended fields into a single text prompt
+            text_parts = [
+                recommended_item.name,
+                *recommended_item.color,
+                *recommended_item.material,
+                *recommended_item.other_tags,
+            ]
+            prompt_text = " ".join(text_parts)
+
+            # Generate embedding
+            clothing_tag = str_to_clothing_tag(prompt_text)
+            embedding = clothing_tag_to_embedding(clothing_tag)
+
+            # Get 1 best match
+            recs = list(get_n_closest(embedding, 1))
+            if recs:
+                best = recs[0]
+                match_item = CatalogItem(
+                    id=str(best["_id"]),
+                    name=best.get("name", ""),
+                    category=best.get("category", ""),
+                    price=best.get("price", 0.0),
+                    image_url=best.get("image_url", ""),
+                    product_url=best.get("product_url", ""),
+                    clothing_type=best.get("clothing_type", ""),
+                    color=ensure_list(best.get("color", [])),
+                    material=ensure_list(best.get("material", [])),
+                    other_tags=ensure_list(best.get("other_tags", [])),
+                )
+            else:
+                # No match found
+                match_item = CatalogItem(
+                    id="",
+                    name="No Match Found",
+                    category="",
+                    price=0.0,
+                    image_url="",
+                    product_url="",
+                    clothing_type="",
+                    color=[],
+                    material=[],
+                    other_tags=[]
+                )
+
+            matched_items.append(
+                OutfitSearchMatchedItem(
+                    original=recommended_item,
+                    match=match_item
+                )
+            )
+
+        final_outfits.append(
+            OutfitSearchResult(
+                style=outfit.style,
+                description=outfit.description,
+                name=outfit.name,
+                items=matched_items
+            )
+        )
+
+    # -------------------------------------------------------
+    #  Return the final OutfitSearchResponse
+    # -------------------------------------------------------
+    return OutfitSearchResponse(outfits=final_outfits)
