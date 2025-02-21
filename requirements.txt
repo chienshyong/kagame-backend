@@ -17,3 +17,4 @@ google-cloud-storage
 google-auth
 matplotlib
 openai
+onnxruntime
