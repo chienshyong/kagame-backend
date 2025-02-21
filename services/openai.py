@@ -39,6 +39,24 @@ openai_client = OpenAI(
 )
 
 
+# Util function for dot products. Make sure the vectors are of the same length
+def calculate_dot_product(vector_name_in_mongodb: str, vector_we_have: list[int]):
+    return {
+        "$sum": {
+            "$map": {
+                "input": {"$range": [0, len(vector_we_have)]},
+                "as": "index",
+                "in": {
+                    "$multiply": [
+                        {"$arrayElemAt": [vector_name_in_mongodb, "$$index"]},
+                        {"$arrayElemAt": [vector_we_have, "$$index"]}
+                    ]
+                }
+            }
+        }
+    }
+
+
 def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from user uploaded image
     prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand). Give tags in all lowercase."
     output = openai_client.beta.chat.completions.parse(
@@ -99,16 +117,16 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
 def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
     # TODO(maybe): Handle case where the tag is 'NIL'. Use [0,0,0....0]? Keep it as is?
 
-    clothing_type_embed = openai_client.embeddings.create(
-        input=tag.clothing_type, model="text-embedding-3-large").data[0].embedding
-    color_embed = openai_client.embeddings.create(
-        input=tag.color, model="text-embedding-3-large").data[0].embedding
-    material_embed = openai_client.embeddings.create(
-        input=tag.material, model="text-embedding-3-large").data[0].embedding
+    input = [tag.clothing_type, tag.color, tag.material] + tag.other_tags
+
+    embedding_data = openai_client.embeddings.create(input=input, model="text-embedding-3-large").data
+
+    clothing_type_embed = embedding_data[0].embedding
+    color_embed = embedding_data[1].embedding
+    material_embed = embedding_data[2].embedding
     other_tags_embed = []
-    for o in tag.other_tags:
-        other_tags_embed.append(openai_client.embeddings.create(
-            input=o, model="text-embedding-3-large").data[0].embedding)
+    for i in range(3, len(embedding_data)):
+        other_tags_embed.append(embedding_data[i].embedding)
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
 
@@ -134,20 +152,7 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
         },
         {
             "$addFields": {
-                "color_score": {
-                    "$sum": {
-                        "$map": {
-                            "input": {"$range": [0, {"$size": "$color_embed"}]},
-                            "as": "index",
-                            "in": {
-                                "$multiply": [
-                                    {"$arrayElemAt": ["$color_embed", "$$index"]},
-                                    {"$arrayElemAt": [tag_embed.color_embed, "$$index"]}
-                                ]
-                            }
-                        }
-                    }
-                }
+                "color_score": calculate_dot_product("$color_embed", tag_embed.color_embed)
             }
         },
         {
@@ -211,13 +216,13 @@ def user_style_to_embedding(user_style: StyleAnalysisResponse) -> list[float]:
     embedding = embedding_response.data[0].embedding
     return embedding
 
-def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = ""):
+def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = "") -> list[ClothingTag]:
     tag_dict = tag.model_dump()
     if additional_prompt != "":
         tag_dict["additional_prompt"] = additional_prompt
 
     prompt = json.dumps(tag_dict)
-    output = openai_client.chat.completions.create(
+    openai_output = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {
@@ -225,8 +230,7 @@ def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = ""):
                 "content": [
                     {
                         "type": "text",
-                        "text": "Given a description of one clothing item in JSON, recommend complementary clothes to complete the outfit.\n\nFollow these steps to recommend an outfit:\n1. If the given item is a top (e.g., tee shirt, polo, shirt, dress, tank top), give recommendations for other outfit pieces like bottoms (e.g., pants, shorts, trousers, jeans, skirts, leggings).\n2. If you are confident in layering clothes with the given item, recommend clothes that can be layered on top of the top (e.g., overshirt, sweater, jacket); if additional context provided in the prompt discourages layering (e.g., summer, hot, lightweight), don't suggest a layer.\n3. Avoid recommending duplicate clothing categories (Tops/Bottoms/Layers). For instance, if shorts are already recommended, do not also recommend skirts or jeans, as both cannot be worn simultaneously.\n\nAdditional constraints or style prompts might be included to tailor outfit recommendations further.\n\nCompile the output into a JSON that contains the description of all the items in the completed outfit. In case there is nothing to layer with, leave the layer tag with an empty string. Do not output the original clothing item. (e.g., if you're given a tee shirt, don't output the tee shirt as part of the outfit).\n\nThe input format will be JSON with these fields:\n- name\n- category\n- tags\n- additional_prompt\n\n# Output Format\n\n- The output should be a JSON list containing a list of clothing items, each with the following fields:\n  - clothing_type\n  - color\n  - material\n  - other_tags\n\n# Examples\n\nExample of input:\n```json\n  {\n  \"name\": \"Denim Skirt\",\n  \"category\": \"Bottoms\",\n  \"tags\": [\n    \"denim\",\n    \"regular\",\n    \"none\",\n    \"casual\",\n    \"summer\"\n  ],\n\"additional_prompt\": \"focus on a sporty style\"\n}\n```\n\nExample of output:\n\n```json\n[\n    {\n      \"clothing_type\": \"shirt\",\n      \"color\": \"white\",\n      \"material\": \"linen\",\n      \"other_tags\": [\"sporty\", \"comfortable\"]\n    },\n    {\n      \"clothing_type\": \"jacket\",\n      \"color\": \"gray\",\n      \"material\": \"nylon\",\n      \"other_tags\": [\"sporty\", \"windbreaker\"]\n    }\n  ...\n]\n```\n\n# Notes\n\n- Consider additional prompts in the input that may influence style preferences.\n- Ensure recommendations align with any specified constraints or styles."
-                    }
+                        "text": "Given a description of one clothing item in JSON, recommend complementary clothes to complete the outfit.\n\nFollow these steps to recommend an outfit:\n1. If the given item is a top (e.g., tee shirt, polo, shirt, dress, tank top), give recommendations for other outfit pieces like bottoms (e.g., pants, shorts, trousers, jeans, skirts, leggings).\n2. If you are confident in layering clothes with the given item, recommend clothes that can be layered on top of the top (e.g., overshirt, sweater, jacket); if additional context provided in the prompt discourages layering (e.g., summer, hot, lightweight), don't suggest a layer.\n\nAdditional constraints or style prompts might be included to tailor outfit recommendations further.\n\nCompile the output into a JSON that contains the description of all the items in the completed outfit. In case there is nothing to layer with, leave the layer tag with an empty string. Do not output the original clothing item. (e.g., if you're given a tee shirt, don't output the tee shirt as part of the outfit).\n Avoid recommending duplicate clothing categories (Tops/Bottoms/Layers). For instance, if shorts are already recommended, do not also recommend skirts or jeans, as both cannot be worn simultaneously."}
                 ]
             },
             {
@@ -305,19 +309,11 @@ def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = ""):
         presence_penalty=0
     )
 
-    print("\n\n")
+    clothing_tags: list[ClothingTag] = []
 
-    for i in output.choices[0].message.tool_calls:
-        print("Output:")
-        print(i.function.arguments)
+    for tool_call_str in openai_output.choices[0].message.tool_calls:
+        tool_call_json = json.loads(tool_call_str.function.arguments)
+        for clothing_tag in tool_call_json["recommendations"]:
+            clothing_tags.append(ClothingTag(**clothing_tag))
 
-
-get_wardrobe_recommendation(WardrobeTag(name="Polka Dot Blouse",
-                                        category="Tops",
-                                        tags=[
-                                            "blouse",
-                                            "loose",
-                                            "three-quarter",
-                                            "casual",
-                                            "everyday"
-                                        ]), "Picnic date")
+    return clothing_tags
