@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest
 
 router = APIRouter()
 
@@ -85,8 +85,6 @@ async def get_item(_id: str, current_user: UserItem = Depends(get_current_user))
 
 @router.patch("/wardrobe/item/{_id}")
 async def patch_item(_id: str, new_data: WardrobeTag, current_user: UserItem = Depends(get_current_user)):
-    print(id)
-    print(new_data)
     query = {"_id": ObjectId(_id), "user_id": current_user['_id']}
     new_data_query = {"$set": {"name": new_data.name, "category": new_data.category, "tags": new_data.tags}}
     result = mongodb.wardrobe.update_one(query, new_data_query)
@@ -151,7 +149,7 @@ async def get_available_categories():
 
 
 @router.get("/wardrobe/search/{search_term}")
-async def get_categories(search_term=str, current_user: UserItem = Depends(get_current_user)):
+async def function_name(search_term=str, current_user: UserItem = Depends(get_current_user)):
     # Find documents where 'name' contains the search term (case-insensitive)
     user_id = current_user['_id']
     items = mongodb.wardrobe.find({
@@ -168,3 +166,26 @@ async def get_categories(search_term=str, current_user: UserItem = Depends(get_c
         res["items"].append({"_id": str(item["_id"]), "name": item["name"], "url": image_url})
 
     return res
+
+
+@router.get("/wardrobe/wardrobe_recommendation")
+async def function_name(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
+    # Given the id of a user's wardrobe item, generate an outfit. You can add ptional constraints
+    result = mongodb.wardrobe.find_one({"_id": ObjectId(_id), "user_id": current_user['_id']})
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item_id specified"
+        )
+
+    wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
+    clothing_tags = get_wardrobe_recommendation(wardrobe_tag, additional_prompt)
+
+    result = []
+    for clothing_tag_embedded in map(clothing_tag_to_embedding, clothing_tags):
+        rec = list(get_n_closest(clothing_tag_embedded, 1))[0]
+        rec['_id'] = str(rec['_id'])
+        result.append(rec)
+
+    return result

@@ -38,8 +38,8 @@ client = MongoClient(MONGODB_CONNECTION_STRING)
 
 try:
     server_info = client.server_info()
-    print("Connected to MongoDB server. Server info:")
-    print(server_info)
+    # print("Connected to MongoDB server. Server info:")
+    # print(server_info)
 except Exception as e:
     print("Unable to connect to the server.")
     print(e)
