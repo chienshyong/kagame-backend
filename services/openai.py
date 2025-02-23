@@ -412,7 +412,9 @@ def user_style_to_embedding(user_style: StyleAnalysisResponse) -> list[float]:
     embedding = embedding_response.data[0].embedding
     return embedding
 
-def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = "") -> list[ClothingTag]:
+def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prompt: str = "") -> list[ClothingTag]:
+    #added user persona 23/02
+    
     tag_dict = tag.model_dump()
     if additional_prompt != "":
         tag_dict["additional_prompt"] = additional_prompt
@@ -426,7 +428,7 @@ def get_wardrobe_recommendation(tag: WardrobeTag, additional_prompt: str = "") -
                 "content": [
                     {
                         "type": "text",
-                        "text": "Given a description of one clothing item in JSON, recommend complementary clothes to complete the outfit.\n\nFollow these steps to recommend an outfit:\n1. If the given item is a top (e.g., tee shirt, polo, shirt, dress, tank top), give recommendations for other outfit pieces like bottoms (e.g., pants, shorts, trousers, jeans, skirts, leggings).\n2. If you are confident in layering clothes with the given item, recommend clothes that can be layered on top of the top (e.g., overshirt, sweater, jacket); if additional context provided in the prompt discourages layering (e.g., summer, hot, lightweight), don't suggest a layer.\n\nAdditional constraints or style prompts might be included to tailor outfit recommendations further.\n\nCompile the output into a JSON that contains the description of all the items in the completed outfit. In case there is nothing to layer with, leave the layer tag with an empty string. Do not output the original clothing item. (e.g., if you're given a tee shirt, don't output the tee shirt as part of the outfit).\n Avoid recommending duplicate clothing categories (Tops/Bottoms/Layers). For instance, if shorts are already recommended, do not also recommend skirts or jeans, as both cannot be worn simultaneously."}
+                        "text": f"You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, styles, additional descriptors)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\nUser Persona: {profile["age"]}-year-old {profile["gender"]} in {profile["location"]}, {profile["skin_tone"]} skin, {profile["style"]} style. Likes: {profile["clothing_preferences"]}. Dislikes: {profile["clothing_dislikes"]}."}
                 ]
             },
             {
