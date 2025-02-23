@@ -179,8 +179,10 @@ async def function_name(_id: str, additional_prompt: str = "", current_user: Use
             detail="Invalid item_id specified"
         )
 
+    profile = await get_userdefined_profile(current_user)
+
     wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
-    clothing_tags = get_wardrobe_recommendation(wardrobe_tag, additional_prompt)
+    clothing_tags = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
 
     result = []
     for clothing_tag_embedded in map(clothing_tag_to_embedding, clothing_tags):
@@ -189,3 +191,17 @@ async def function_name(_id: str, additional_prompt: str = "", current_user: Use
         result.append(rec)
 
     return result
+
+@router.get("/wardrobe/userdefined_profile")
+async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
+    profile = current_user["userdefined_profile"]
+    
+    """return format: {
+  "gender": "Female",
+  "birthday": "09/09/2025",
+  "location": "Singapore",
+  "skin_tone": "Medium skin with neutral to warm undertones",
+  "style": "Casual",
+  "happiness_current_wardrobe": "7"
+}"""
+    return profile
