@@ -297,7 +297,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
     items_per_style = max(n // styles_count, 1)
     
     for style_suggestion in user_style.top_styles:
-        style_prompt = f"{style_suggestion.style}: {style_suggestion.description}"
+        style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
         clothing_tag = str_to_clothing_tag(style_prompt)
         tag_embed = clothing_tag_to_embedding(clothing_tag)
         recs = list(get_n_closest(tag_embed, items_per_style))
@@ -653,8 +653,6 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
 
             clothing_tag = str_to_clothing_tag(prompt_text)
             embedding = clothing_tag_to_embedding(clothing_tag)
-            print(f"[DEBUG] Generated embedding: {embedding}")
-
             recs = list(get_n_closest(embedding, 1))
             if recs:
                 best = recs[0]
