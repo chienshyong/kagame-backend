@@ -16,6 +16,7 @@ from services.mongodb import UserItem
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 import json
+from tqdm import tqdm  # <-- Added tqdm import
 
 router = APIRouter()
 
@@ -357,7 +358,7 @@ class StrictRecommendedItem(BaseModel):
     reason: str
 
     def validate_tags(self):
-        # At least 1 color tags
+        # At least 1 color tag
         if len(self.color) < 1:
             raise ValueError(
                 f"'color' must have at least 1 tag, got {len(self.color)}."
@@ -367,7 +368,7 @@ class StrictRecommendedItem(BaseModel):
             raise ValueError(
                 f"'material' must have at least 1 tag, got {len(self.material)}."
             )
-        # At least 10 'other_tags'
+        # At least 5 'other_tags'
         if len(self.other_tags) < 5:
             raise ValueError(
                 f"'other_tags' must have at least 10 tags, got {len(self.other_tags)}."
@@ -521,7 +522,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     #  Prepare text for user’s top styles
     # -------------------------------------------------------
     top_styles_instructions = []
-    for style_info in user_style.top_styles:
+    for style_info in tqdm(user_style.top_styles, desc="Processing user styles"):
         top_styles_instructions.append(
             f"Style: {style_info.style}\nDescription: {style_info.description}"
         )
@@ -639,9 +640,11 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     print(f"[DEBUG] Request payload for outfit search: {request_payload.model_dump_json(indent=2)}")
 
     final_outfits: List[OutfitSearchResult] = []
-    for outfit in request_payload.outfits:
+    # Wrap the outfit processing with tqdm for progress indication
+    for outfit in tqdm(request_payload.outfits, desc="Processing outfits"):
         matched_items: List[OutfitSearchMatchedItem] = []
-        for recommended_item in outfit.items:
+        # Wrap the inner loop for recommended items
+        for recommended_item in tqdm(outfit.items, desc="Matching recommended items", leave=False):
             text_parts = [
                 recommended_item.name,
                 *recommended_item.color,
