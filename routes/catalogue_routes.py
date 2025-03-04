@@ -704,3 +704,23 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     print(f"[DEBUG] Final outfits prepared: {final_outfits}")
 
     return OutfitSearchResponse(outfits=final_outfits)
+
+@router.get("/shop/item/{item_id}")
+def get_item_by_id(item_id: str):
+    """
+    Retrieves a single item from the 'catalogue' collection by ID, returning all fields.
+    """
+    try:
+        object_id = ObjectId(item_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid item_id format")
+
+    item_doc = mongodb.catalogue.find_one({"_id": object_id})
+    if not item_doc:
+        raise HTTPException(status_code=404, detail="Item not found with given id")
+
+    # Convert MongoDB's _id to a friendlier field
+    item_doc["id"] = str(item_doc["_id"])
+    del item_doc["_id"]  # Optionally remove the original _id field
+
+    return item_doc
