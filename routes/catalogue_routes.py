@@ -342,11 +342,11 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
 
 
 class LooseRecommendedItem(BaseModel):
+    reason: str
     name: str
     color: List[str]
     material: List[str]
     other_tags: List[str]
-    reason: str
 
 
 class LooseOutfitRecommendation(BaseModel):
@@ -365,11 +365,11 @@ class LooseStylingLLMResponse(BaseModel):
 
 
 class StrictRecommendedItem(BaseModel):
+    reason: str
     name: str
     color: List[str]
     material: List[str]
     other_tags: List[str]
-    reason: str
 
     def validate_tags(self):
         # At least 1 color tag
@@ -445,6 +445,7 @@ class CatalogItem(BaseModel):
     category: str
     price: float
     image_url: str
+    cropped_image_url: Optional[str] = None
     product_url: str
     clothing_type: str
     color: List[str]
@@ -560,33 +561,17 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     system_message = {
         "role": "system",
         "content": (
-            "You are a helpful fashion assistant. "
+            "You are an expert fashion stylist. "
             "We have exactly 3 user styles, plus 1 chosen clothing item. "
-            "For each of the 3 styles, build an outfit that:\n"
-            "  1) Includes the already-chosen item.\n"
-            "  2) Recommends 2 additional items, each with:\n"
-            "     - name (string)\n"
+            "For each of the 3 styles, recommends 2 additional items for the chosen clothing item, to make a cohesive outfit. Each recommended item should have:\n"
+            "     - a short reasoning/thought process behind choosing the item (string)\n"
+            "     - detailed name (string)\n"
             "     - color (array of strings, at least 3)\n"
             "     - material (array of strings)\n"
             "     - other_tags (array of strings, at least 10)\n"
-            "     - reason (string)\n"
-            "  3) The top-level JSON must have 'outfits' array. Each outfit has:\n"
+            "  2) The top-level JSON must have 'outfits' array. Each outfit has:\n"
             "     - 'style', 'description', 'name', 'items'.\n\n"
-            "No extra keys, no commentary; only a valid JSON object that matches:\n"
-            "{\n"
-            "  \"outfits\": [\n"
-            "    {\n"
-            "      \"style\": \"...\",\n"
-            "      \"description\": \"...\",\n"
-            "      \"name\": \"...\",\n"
-            "      \"items\": [\n"
-            "        {\"name\": \"...\", \"color\": [...], ...},\n"
-            "        {...}\n"
-            "      ]\n"
-            "    },\n"
-            "    ... (2 more outfits)...\n"
-            "  ]\n"
-            "}"
+            "The reasoning/chain-of-thought should be succinct. The description of the outfit style should be succinct.\n"
         )
     }
 
@@ -599,7 +584,6 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
         f"- Material: {product.get('material', '')}\n"
         f"- Other Tags: {product.get('other_tags', [])}\n\n"
         f"{pairing_instructions}\n\n"
-        "We only want the JSON response with the structure described above. No additional commentary."
     )
     user_message = {"role": "user", "content": user_message_content}
 
@@ -612,7 +596,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     # -------------------------------------------------------
     try:
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
+            model="gpt-4o-mini",
             messages=messages,
             response_format=LooseStylingLLMResponse
         )
