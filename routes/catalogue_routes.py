@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 import services.mongodb as mongodb
 from services.openai import (
+    ClothingTag,
     str_to_clothing_tag,
     clothing_tag_to_embedding,
     get_n_closest,
     ClothingTagEmbed,
     user_style_to_embedding,
     StyleAnalysisResponse,
+    get_n_closest_with_filter
 )
 from bson import ObjectId
 from services.user import get_current_user
@@ -73,16 +75,16 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
         )
 
 
-@router.get("/shop/search")
-def get_search_result(search: str, n: int):
-    clothing_tag = str_to_clothing_tag(search)
-    embedding = clothing_tag_to_embedding(clothing_tag)
-    recs = list(get_n_closest(embedding, n))
+# @router.get("/shop/search")
+# def get_search_result(search: str, n: int):
+#     clothing_tag = str_to_clothing_tag(search)
+#     embedding = clothing_tag_to_embedding(clothing_tag)
+#     recs = list(get_n_closest(embedding, n))
 
-    # Convert _id to string
-    for rec in recs:
-        rec['_id'] = str(rec['_id'])
-    return recs
+#     # Convert _id to string
+#     for rec in recs:
+#         rec['_id'] = str(rec['_id'])
+#     return recs
 
 
 @router.get("/shop/similar_items")
@@ -296,18 +298,14 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
     return recommendations
 
 
-# -------------------------------------------------------------------
-# 1) "Loose" models from the LLM (no strict validation)
-# -------------------------------------------------------------------
-
-
 class LooseRecommendedItem(BaseModel):
     reason: str
     name: str
     color: List[str]
     material: List[str]
     other_tags: List[str]
-
+    category: str
+    clothing_type: str
 
 class LooseOutfitRecommendation(BaseModel):
     style: str
@@ -315,21 +313,17 @@ class LooseOutfitRecommendation(BaseModel):
     name: str
     items: List[LooseRecommendedItem]
 
-
 class LooseStylingLLMResponse(BaseModel):
     outfits: List[LooseOutfitRecommendation]
 
-
-# -------------------------------------------------------------------
-# 2) Input & Output Models for the final outfit search
-# -------------------------------------------------------------------
 class RecommendedItemInput(BaseModel):
     name: str
     color: List[str]
     material: List[str]
     other_tags: List[str]
     reason: str
-
+    category: str
+    clothing_type: str
 
 class OutfitInput(BaseModel):
     style: str
@@ -337,32 +331,21 @@ class OutfitInput(BaseModel):
     name: str
     items: List[RecommendedItemInput]
 
-
 class OutfitSearchRequest(BaseModel):
     outfits: List[OutfitInput]
 
-##############################
-# Output Models for Matched Catalog Items
-##############################
-
-
 class CatalogItem(BaseModel):
-    """
-    Only returning the matched item id here.
-    """
     id: str
 
 class OutfitSearchMatchedItem(BaseModel):
     original: RecommendedItemInput
     match: CatalogItem
 
-
 class OutfitSearchResult(BaseModel):
     style: str
     description: str
     name: str
     items: List[OutfitSearchMatchedItem]
-
 
 class OutfitSearchResponse(BaseModel):
     outfits: List[OutfitSearchResult]
@@ -375,49 +358,42 @@ def ensure_list(value) -> List[str]:
     else:
         return []
 
-# -------------------------------------------------------------------
-# /shop/item-outfit-search -- NO STRICT VALIDATION
-# -------------------------------------------------------------------
 @router.get("/shop/item-outfit-search")
 def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_current_user)) -> OutfitSearchResponse:
-    """
-    We no longer do any 'strict' Pydantic checks. We just parse into `LooseStylingLLMResponse`,
-    then convert that result into our final 'OutfitSearchResponse'.
-    """
     try:
         object_id = ObjectId(item_id)
-        print(f"[DEBUG] Converted item_id '{item_id}' to ObjectId: {object_id}")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid item_id format")
 
-    product = mongodb.catalogue.find_one(
-        {"_id": object_id}, {"clothing_type_embed": 0, "color_embed": 0, "material_embed": 0, "other_tags_embed": 0})
+    product = mongodb.catalogue.find_one({"_id": object_id})
     if not product:
         raise HTTPException(status_code=404, detail="Product not found with given id")
 
     user = mongodb.users.find_one({"_id": current_user["_id"]})
     if not user or "user_style" not in user:
         raise HTTPException(status_code=400, detail="User style not found.")
+
     user_style_data = user["user_style"]
-
-    # We still parse the user's style
     try:
-        user_style = StyleAnalysisResponse.model_validate(user_style_data)
+        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error parsing user style: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error parsing user style: {e}"
+        )
 
-    # Determine pairing instructions
-    clothing_type = (product.get("category") or "").lower()
-    if clothing_type in ["top", "tops","shirt", "blouse", "tank top", "camisole top", "t-shirt"]:
+    # Build the pairing instructions from product category
+    category = (product.get("category") or "").lower()
+    if category == "tops":
         pairing_instructions = "Because this item is a top, recommend (1) a bottom and (2) shoes."
-    elif clothing_type in ["bottom", "bottoms", "pants", "jeans", "leggings", "shorts", "skirt"]:
+    elif category == "bottoms":
         pairing_instructions = "Because this item is a bottom, recommend (1) a top and (2) shoes."
-    elif clothing_type in ["shoes", "heels", "sneakers", "boots"]:
-        pairing_instructions = "Because this item is shoes, recommend (1) a top and (2) a bottom."
+    elif category == "shoes":
+        pairing_instructions = "Because this item are shoes, recommend (1) a top and (2) a bottom."
     else:
         pairing_instructions = "Please recommend two items that complement this piece for a cohesive outfit."
 
-    # Summarize user’s top styles
+    # Summarize top styles
     top_styles_instructions = []
     for style_info in user_style.top_styles:
         top_styles_instructions.append(
@@ -429,11 +405,21 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
         "role": "system",
         "content": (
             "You are an expert fashion stylist. We have exactly 3 user styles, plus 1 chosen clothing item. "
-            "For each of the 3 styles, recommend 2 additional items for that clothing item. "
-            "Each recommended item must have: a short reasoning, name, color[], material[], other_tags[]. "
-            "The top-level JSON has 'outfits'. Each outfit has 'style', 'description', 'name', 'items'."
+            "For each of the 3 styles, recommend 2 additional items for that chosen clothing item, to make a cohesive outfit. "
+            "Each recommended item must have:\n"
+            "- category: one of 'Tops', 'Bottoms', or 'Shoes'\n (case sensitive)"
+            "- clothing_type\n"
+            "- a short reasoning\n"
+            "- name\n"
+            "- color[]\n"
+            "- material[]\n"
+            "- other_tags[]\n\n"
+            "The top-level JSON must have 'outfits'. Each outfit has 'style', 'description', 'name', 'items'. The outfit name should be something cute!"
+            "Each item in 'items' must have exactly these fields: "
+            "[category, reason, name, color[], material[], other_tags[], clothing_type]."
         )
     }
+
     user_message_content = (
         f"User's top 3 styles:\n\n{styles_text}\n\n"
         f"Chosen item:\n"
@@ -444,6 +430,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
         f"- Other Tags: {product.get('other_tags', [])}\n\n"
         f"{pairing_instructions}\n\n"
     )
+
     user_message = {"role": "user", "content": user_message_content}
     messages = [system_message, user_message]
 
@@ -459,16 +446,10 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     if not completion or not completion.choices:
         raise HTTPException(status_code=500, detail="No response from OpenAI")
 
-    # Parse with Loose model (NO strict validation)
     loose_data = completion.choices[0].message.parsed
     data_dict = loose_data.dict()
-    print("[DEBUG] LLM final JSON:", json.dumps(data_dict, indent=2))
-
-    # Convert the LLM response to our final OutfitSearchRequest
-    # but we're not validating with "strict" constraints anymore.
     outfits = data_dict.get("outfits", [])
 
-    # Build final results
     final_outfits: List[OutfitSearchResult] = []
 
     for outfit in outfits:
@@ -479,34 +460,36 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
 
         matched_items: List[OutfitSearchMatchedItem] = []
         for recommended_item in items:
-            # Build a "RecommendedItemInput" from the LLM's data
-            # ignoring any missing fields
+            # Build the recommended item
             rec_input = RecommendedItemInput(
                 name=recommended_item.get("name", ""),
                 color=recommended_item.get("color", []),
                 material=recommended_item.get("material", []),
                 other_tags=recommended_item.get("other_tags", []),
-                reason=recommended_item.get("reason", "")
+                reason=recommended_item.get("reason", ""),
+                category=recommended_item.get("category", "").capitalize(),
+                clothing_type=recommended_item.get("clothing_type", "").lower(),
             )
 
-            # Build prompt text
-            text_parts = [
-                rec_input.name,
-                *rec_input.color,
-                *rec_input.material,
-                *rec_input.other_tags,
-            ]
-            prompt_text = " ".join(text_parts)
+            color_str = ",".join(rec_input.color) if rec_input.color else "nil"
+            material_str = ",".join(rec_input.material) if rec_input.material else "nil"
 
-            clothing_tag = str_to_clothing_tag(prompt_text)
-            embedding = clothing_tag_to_embedding(clothing_tag)
-            recs = list(get_n_closest(embedding, 1))
+            new_tag = ClothingTag(
+                clothing_type=rec_input.clothing_type,
+                color=color_str,
+                material=material_str,
+                other_tags=rec_input.other_tags
+            )
 
+            # Then get embedding
+            embedding = clothing_tag_to_embedding(new_tag)
+            # Use category-based filter
+            recs = list(get_n_closest_with_filter(embedding, rec_input.category, 1))
             if recs:
                 best = recs[0]
                 match_item = CatalogItem(id=str(best["_id"]))
             else:
-                match_item = CatalogItem(id="")  # "No Match"
+                match_item = CatalogItem(id="")
 
             matched_items.append(
                 OutfitSearchMatchedItem(original=rec_input, match=match_item)
@@ -523,7 +506,6 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
 
     return OutfitSearchResponse(outfits=final_outfits)
 
-
 @router.get("/shop/item/{item_id}")
 def get_item_by_id(item_id: str):
     try:
@@ -537,5 +519,4 @@ def get_item_by_id(item_id: str):
 
     item_doc["id"] = str(item_doc["_id"])
     del item_doc["_id"]
-    print(item_doc["name"], item_doc["category"])
     return item_doc
