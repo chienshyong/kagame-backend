@@ -19,6 +19,7 @@ import json
 
 router = APIRouter()
 
+
 @router.get("/shop/items")
 def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False, limit: int = 0):
     try:
@@ -71,6 +72,7 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
             detail=f"An error occurred while fetching items: {str(e)}"
         )
 
+
 @router.get("/shop/search")
 def get_search_result(search: str, n: int):
     clothing_tag = str_to_clothing_tag(search)
@@ -81,6 +83,7 @@ def get_search_result(search: str, n: int):
     for rec in recs:
         rec['_id'] = str(rec['_id'])
     return recs
+
 
 @router.get("/shop/similar_items")
 def get_similar_items(id: str, n: int = 5):
@@ -157,6 +160,7 @@ class StyleSuggestion(BaseModel):
     description: str
     reasoning: str
 
+
 class StyleAnalysisResponse(BaseModel):
     top_styles: List[StyleSuggestion]
 
@@ -164,6 +168,7 @@ class User(BaseModel):
     username: str
     password: str
     user_style: Optional[StyleAnalysisResponse] = None
+
 
 @router.get("/user/style-analysis")
 async def get_style_analysis(current_user: UserItem = Depends(get_current_user)):
@@ -257,7 +262,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         raise HTTPException(status_code=400, detail="No styles found in user style analysis.")
 
     items_per_style = max(n // styles_count, 1)
-    
+
     for style_suggestion in user_style.top_styles:
         style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
         clothing_tag = str_to_clothing_tag(style_prompt)
@@ -294,6 +299,8 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
 # -------------------------------------------------------------------
 # 1) "Loose" models from the LLM (no strict validation)
 # -------------------------------------------------------------------
+
+
 class LooseRecommendedItem(BaseModel):
     reason: str
     name: str
@@ -301,11 +308,13 @@ class LooseRecommendedItem(BaseModel):
     material: List[str]
     other_tags: List[str]
 
+
 class LooseOutfitRecommendation(BaseModel):
     style: str
     description: str
     name: str
     items: List[LooseRecommendedItem]
+
 
 class LooseStylingLLMResponse(BaseModel):
     outfits: List[LooseOutfitRecommendation]
@@ -321,14 +330,21 @@ class RecommendedItemInput(BaseModel):
     other_tags: List[str]
     reason: str
 
+
 class OutfitInput(BaseModel):
     style: str
     description: str
     name: str
     items: List[RecommendedItemInput]
 
+
 class OutfitSearchRequest(BaseModel):
     outfits: List[OutfitInput]
+
+##############################
+# Output Models for Matched Catalog Items
+##############################
+
 
 class CatalogItem(BaseModel):
     """
@@ -340,11 +356,13 @@ class OutfitSearchMatchedItem(BaseModel):
     original: RecommendedItemInput
     match: CatalogItem
 
+
 class OutfitSearchResult(BaseModel):
     style: str
     description: str
     name: str
     items: List[OutfitSearchMatchedItem]
+
 
 class OutfitSearchResponse(BaseModel):
     outfits: List[OutfitSearchResult]
@@ -372,7 +390,8 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid item_id format")
 
-    product = mongodb.catalogue.find_one({"_id": object_id})
+    product = mongodb.catalogue.find_one(
+        {"_id": object_id}, {"clothing_type_embed": 0, "color_embed": 0, "material_embed": 0, "other_tags_embed": 0})
     if not product:
         raise HTTPException(status_code=404, detail="Product not found with given id")
 
@@ -383,7 +402,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
 
     # We still parse the user's style
     try:
-        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
+        user_style = StyleAnalysisResponse.model_validate(user_style_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error parsing user style: {e}")
 
