@@ -20,6 +20,7 @@ from tqdm import tqdm  # <-- Added tqdm import
 
 router = APIRouter()
 
+
 @router.get("/shop/items")
 def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False, limit: int = 0):
     try:
@@ -75,6 +76,7 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
             detail=f"An error occurred while fetching items: {str(e)}"
         )
 
+
 @router.get("/shop/search")
 def get_search_result(search: str, n: int):
     clothing_tag = str_to_clothing_tag(search)
@@ -85,6 +87,7 @@ def get_search_result(search: str, n: int):
         rec['_id'] = str(rec['_id'])
 
     return recs
+
 
 @router.get("/shop/similar_items")
 def get_similar_items(id: str, n: int = 5):
@@ -160,19 +163,25 @@ openai_client = OpenAI(
 )
 
 # Define the response models
+
+
 class StyleSuggestion(BaseModel):
     style: str
     description: str
     reasoning: str
 
+
 class StyleAnalysisResponse(BaseModel):
     top_styles: list[StyleSuggestion]
 
 # Modify the User model to include 'user_style' as an optional field
+
+
 class User(BaseModel):
     username: str
     password: str
     user_style: Optional[StyleAnalysisResponse] = None
+
 
 @router.get("/user/style-analysis")
 async def get_style_analysis(current_user: UserItem = Depends(get_current_user)):
@@ -187,7 +196,7 @@ async def get_style_analysis(current_user: UserItem = Depends(get_current_user))
             "tags": item["tags"]
         }
         wardrobe_items.append(wardrobe_item)
-    
+
     if not wardrobe_items:
         raise HTTPException(status_code=400, detail="No wardrobe items found for the user.")
 
@@ -232,7 +241,7 @@ async def get_style_analysis(current_user: UserItem = Depends(get_current_user))
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     # Extract and return the parsed response
     style_analysis = completion.choices[0].message.parsed
 
@@ -243,6 +252,7 @@ async def get_style_analysis(current_user: UserItem = Depends(get_current_user))
     )
 
     return style_analysis.dict()
+
 
 @router.get("/user/style-embedding")
 def get_user_style_embedding(current_user: UserItem = Depends(get_current_user)):
@@ -280,7 +290,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
     user = mongodb.users.find_one({"_id": current_user["_id"]})
     if not user or "user_style" not in user:
         raise HTTPException(status_code=400, detail="User style not found.")
-    
+
     user_style_data = user["user_style"]
     try:
         user_style = StyleAnalysisResponse.parse_obj(user_style_data)
@@ -288,7 +298,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         raise HTTPException(
             status_code=500, detail=f"Error parsing user style: {str(e)}"
         )
-    
+
     recommendations = []
     item_ids = set()
     styles_count = len(user_style.top_styles)
@@ -296,7 +306,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         raise HTTPException(status_code=400, detail="No styles found in user style analysis.")
 
     items_per_style = max(n // styles_count, 1)
-    
+
     for style_suggestion in user_style.top_styles:
         style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
         clothing_tag = str_to_clothing_tag(style_prompt)
@@ -330,6 +340,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
 # 1) "Loose" models for OpenAI parse (no advanced constraints)
 # -------------------------------------------------------------------
 
+
 class LooseRecommendedItem(BaseModel):
     name: str
     color: List[str]
@@ -337,11 +348,13 @@ class LooseRecommendedItem(BaseModel):
     other_tags: List[str]
     reason: str
 
+
 class LooseOutfitRecommendation(BaseModel):
     style: str
     description: str
     name: str
     items: List[LooseRecommendedItem]
+
 
 class LooseStylingLLMResponse(BaseModel):
     outfits: List[LooseOutfitRecommendation]
@@ -349,6 +362,7 @@ class LooseStylingLLMResponse(BaseModel):
 # -------------------------------------------------------------------
 # 2) "Strict" models for post-parse validation (with constraints)
 # -------------------------------------------------------------------
+
 
 class StrictRecommendedItem(BaseModel):
     name: str
@@ -374,6 +388,7 @@ class StrictRecommendedItem(BaseModel):
                 f"'other_tags' must have at least 10 tags, got {len(self.other_tags)}."
             )
 
+
 class StrictOutfitRecommendation(BaseModel):
     style: str
     description: str
@@ -383,6 +398,7 @@ class StrictOutfitRecommendation(BaseModel):
     def validate_items(self):
         for item in self.items:
             item.validate_tags()
+
 
 class StrictStylingLLMResponse(BaseModel):
     outfits: List[StrictOutfitRecommendation]
@@ -395,6 +411,7 @@ class StrictStylingLLMResponse(BaseModel):
 # Input Models for Outfit Search
 ##############################
 
+
 class RecommendedItemInput(BaseModel):
     name: str
     color: List[str]
@@ -402,11 +419,13 @@ class RecommendedItemInput(BaseModel):
     other_tags: List[str]
     reason: str
 
+
 class OutfitInput(BaseModel):
     style: str
     description: str
     name: str
     items: List[RecommendedItemInput]
+
 
 class OutfitSearchRequest(BaseModel):
     outfits: List[OutfitInput]
@@ -414,6 +433,7 @@ class OutfitSearchRequest(BaseModel):
 ##############################
 # Output Models for Matched Catalog Items
 ##############################
+
 
 class CatalogItem(BaseModel):
     """
@@ -431,6 +451,7 @@ class CatalogItem(BaseModel):
     material: List[str]
     other_tags: List[str]
 
+
 class OutfitSearchMatchedItem(BaseModel):
     """
     Wraps the original LLM-recommended item and its matched catalogue item.
@@ -438,11 +459,13 @@ class OutfitSearchMatchedItem(BaseModel):
     original: RecommendedItemInput
     match: CatalogItem
 
+
 class OutfitSearchResult(BaseModel):
     style: str
     description: str
     name: str
     items: List[OutfitSearchMatchedItem]
+
 
 class OutfitSearchResponse(BaseModel):
     outfits: List[OutfitSearchResult]
@@ -450,6 +473,7 @@ class OutfitSearchResponse(BaseModel):
 ##############################
 # Helper Function
 ##############################
+
 
 def ensure_list(value) -> List[str]:
     """
@@ -464,6 +488,7 @@ def ensure_list(value) -> List[str]:
         return [value]
     else:
         return []
+
 
 @router.get("/shop/item-outfit-search")
 def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_current_user)) -> OutfitSearchResponse:
@@ -482,11 +507,11 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
         print(f"[DEBUG] Failed to convert item_id '{item_id}' to ObjectId: {e}")
         raise HTTPException(status_code=400, detail="Invalid item_id format")
 
-    product = mongodb.catalogue.find_one({"_id": object_id})
+    product = mongodb.catalogue.find_one(
+        {"_id": object_id}, {"clothing_type_embed": 0, "color_embed": 0, "material_embed": 0, "other_tags_embed": 0})
     if not product:
         print(f"[DEBUG] Product not found for _id: {object_id}")
         raise HTTPException(status_code=404, detail="Product not found with given id")
-    print(f"[DEBUG] Retrieved product: {product}")
 
     # -------------------------------------------------------
     #  Fetch the user's style
@@ -498,7 +523,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     user_style_data = user["user_style"]
     print(f"[DEBUG] Retrieved user style data: {user_style_data}")
     try:
-        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
+        user_style = StyleAnalysisResponse.model_validate(user_style_data)
     except Exception as e:
         print(f"[DEBUG] Error parsing user style: {e}")
         raise HTTPException(status_code=500, detail=f"Error parsing user style: {e}")
@@ -704,6 +729,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
     print(f"[DEBUG] Final outfits prepared: {final_outfits}")
 
     return OutfitSearchResponse(outfits=final_outfits)
+
 
 @router.get("/shop/item/{item_id}")
 def get_item_by_id(item_id: str):
