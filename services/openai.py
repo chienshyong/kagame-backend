@@ -325,7 +325,6 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
         other_tags_embed.append(embedding_data[i].embedding)
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
-
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
     FIRST_STAGE_FILTER_RATIO = 10
     CANDIDATE_TO_LIMIT_RATIO = 10
@@ -519,3 +518,75 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
             clothing_tags.append(ClothingTag(**clothing_tag))
 
     return clothing_tags
+
+def get_n_closest_with_filter(tag_embed: ClothingTagEmbed, category: str, n: int):
+    """
+    Returns the n closest items in the specified category using vector search.
+    """
+    # You can reuse the FIRST_STAGE_FILTER_RATIO, weighting, etc. from get_n_closest.
+    # The main difference is the pipeline's filter includes "category": category.
+    FIRST_STAGE_FILTER_RATIO = 10
+    CANDIDATE_TO_LIMIT_RATIO = 10
+    CLOTHING_TYPE_WEIGHT = 0.7
+    COLOR_WEIGHT = 0.3
+
+    from services.metadata import get_catalogue_metadata
+    import random
+    import services.mongodb as mongodb
+
+    bucket_count = get_catalogue_metadata().bucket_count
+    bucket_num = random.randint(1, bucket_count)
+
+    pipeline = [
+        {
+            '$vectorSearch': {
+                'index': 'vector_search_with_category_filter',
+                'path': 'clothing_type_embed',
+                'queryVector': tag_embed.clothing_type_embed,
+                'numCandidates': n * FIRST_STAGE_FILTER_RATIO * CANDIDATE_TO_LIMIT_RATIO,
+                'limit': n * FIRST_STAGE_FILTER_RATIO,
+                'filter': {
+                    'bucket_num': bucket_num,
+                    'category': category
+                }
+            }
+        },
+        # Add color_score, combined_score, etc., same as get_n_closest
+        {
+            "$addFields": {
+                "color_score": calculate_dot_product("$color_embed", tag_embed.color_embed)
+            }
+        },
+        {
+            "$addFields": {
+                "combined_score": {
+                    "$add": [
+                        {"$multiply": [CLOTHING_TYPE_WEIGHT, {"$meta": "vectorSearchScore"}]},
+                        {"$multiply": [COLOR_WEIGHT, "$color_score"]}
+                    ]
+                }
+            }
+        },
+        {
+            "$sort": {"combined_score": -1}
+        },
+        {
+            "$limit": n
+        },
+        {
+            "$project": {
+                '_id': 1,
+                'name': 1,
+                'category': 1,
+                'price': 1,
+                'image_url': 1,
+                'product_url': 1,
+                'clothing_type': 1,
+                'color': 1,
+                'material': 1,
+                'other_tags': 1
+            }
+        }
+    ]
+    return mongodb.catalogue.aggregate(pipeline)
+
