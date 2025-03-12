@@ -185,7 +185,7 @@ def calculate_dot_product(vector_name_in_mongodb: str, vector_we_have: list[int]
 
 
 def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from user uploaded image
-    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other adjectives (eg. color, material, occasion, fit, sleeve, brand). Give tags in all lowercase."
+    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other descriptors as a list in this order [styles, ocassion, fit, color, material]. If there are multiple styles separate them by commas. Add the word 'fit' in the fit descriptor (e.g. regular fit). Give tags in all lowercase."
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -221,7 +221,7 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
                 "content": [
                     {
                         "type": "text",
-                        "text": "You'll be given a description for an outfit. Generate tags for this, including clothing type, color, material, other adjectives (eg. occasion, fit, sleeve, brand). If nothing can be inferred for the type or color or material, use \"NIL\". For others tag, keep it as an empty list if nothing can be inferred. Give tags in all lowercase."
+                        "text": "You'll be given a description for an outfit. Generate descriptor tags for this as a list in this order [styles, ocassion, fit, color, material]. If there are multiple styles separate them by commas. Add the word 'fit' in the fit descriptor (e.g. regular fit). If nothing can be inferred for the type or color or material, use \"NIL\". Give tags in all lowercase."
                     }
                 ]
             },
@@ -428,9 +428,9 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
                 "content": [
                     {
                     "type": "text",
-                    "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, styles, additional descriptors)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
+                    "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
                     User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['skin_tone']} skin, {profile['style']} style.
-                    Likes: {profile['clothing_preferences']}.
+                    Likes: {profile['clothing_likes']}.
                     Dislikes: {profile['clothing_dislikes']}.
                     """}
                 ]
@@ -519,3 +519,96 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
             clothing_tags.append(ClothingTag(**clothing_tag))
 
     return clothing_tags
+
+def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: WardrobeTag, dislike_reason: str, profile: dict):
+    #generates a new recommendation given a disliked previous one. Should be called when user dislikes a recommended item from the wardrobe page.
+    #TODO need to figure out how to pass the outfit style of the starting item
+    #TODO include additional prompts in the recommendation
+    
+    outfit_style = starting_item.tags[:3]
+    #[styles, ocassion, fit, color, material] --> hardcoded order in generate_wardrobe_tags, we only use the first 3 to determine the outfit style
+
+    response = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {
+        "role": "system",
+        "content": [
+            {
+            "text": f"You are a fashion stylist recommending clothes to a user. The user wants to generate an alternative for a single item from an outfit because of some dislike reason. You will be given the disliked item as a JSON with the following tags: \"name\" (description of the item), \"category\" (top, bottom, shoes), \"tags\" (style descriptors). You will also be given style descriptors of the outfit.\n\n1.) Store the category of the disliked. You should only recommend an item from the same category.\n2.) Use the style descriptors of the outfit to gauge the style of the item you will be generating.\n3.) The dislike reason will be given as one of the tags of the item, change that when generating the new outfit. Only the dislike reason should be drastically changed, try to keep other factors the same. You should act as a sales rep suggesting an alternative, not a completely new item.\n\nOutput the new recommendation in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nUser Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, with {profile['style']} style. Likes: {profile['clothing_likes']}. Dislikes: {profile['clothing_dislikes']}.",
+            "type": "text"
+            }
+        ]
+        },
+        {
+        "role": "user",
+        "content": [
+            {
+            "type": "text",
+            "text": f"disliked_item ({disliked_item})\n\noutfit_style ({outfit_style})\n\ndislike_reason({dislike_reason})"
+            }
+        ]
+        }
+    ],
+    response_format={
+        "type": "json_object"
+    },
+    tools=[
+        {
+        "type": "function",
+        "function": {
+            "name": "feedback_single_item",
+            "strict": True,
+            "parameters": {
+            "type": "object",
+            "required": [
+                "clothing_type",
+                "color",
+                "material",
+                "other_tags"
+            ],
+            "properties": {
+                "color": {
+                "type": "string",
+                "description": "color of clothing item"
+                },
+                "material": {
+                "type": "string",
+                "description": "Material of the clothing item (e.g., cotton, wool, polyester)"
+                },
+                "other_tags": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "description": "A style tag (e.g., casual, formal, vintage)"
+                },
+                "description": "Any other tags that describe the item's style"
+                },
+                "clothing_type": {
+                "type": "string",
+                "description": "Type of clothing item (e.g., shirt, pants, dress)"
+                }
+            },
+            "additionalProperties": False
+            },
+            "description": "Describes a clothing item with its features."
+        }
+        }
+    ],
+    tool_choice={
+        "type": "function",
+        "function": {
+        "name": "feedback_single_item"
+        }
+    },
+    temperature=1,
+    max_completion_tokens=2048,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0
+    )
+
+    output = response.choices[0].message.tool_calls[0].function.arguments
+    output_json = json.loads(output)
+    clothing_item = ClothingTag(**output_json)
+    return clothing_item
