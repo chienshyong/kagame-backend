@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest, get_user_feedback_recommendation
 
 router = APIRouter()
 
@@ -195,13 +195,38 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 @router.get("/wardrobe/userdefined_profile")
 async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
     profile = current_user["userdefined_profile"]
+
+    #just keeping the latest 5 entries and keeping the datatype as list
+    profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
+
+    #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
+    dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
     
-    """return format: {
-  "gender": "Female",
-  "birthday": "09/09/2025",
-  "location": "Singapore",
-  "skin_tone": "Medium skin with neutral to warm undertones",
-  "style": "Casual",
-  "happiness_current_wardrobe": "7"
-}"""
+    #get just the dislike reason from the list and add it to another list with just the dislike reasons
+    dislikes_list = []
+    for item in dislikes:
+        dislikes_list.append(item[3])
+
+    profile['clothing_dislikes'] = dislikes_list
     return profile
+
+@router.get("/wardrobe/feedback_recommendation")
+async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason:str, current_user: dict = Depends(get_current_user)):
+    #previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
+
+    starting_mongodb_object = mongodb.wardrobe.find_one({"_id": ObjectId(starting_id), "user_id": current_user['_id']})
+    disliked_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(previous_rec_id)})
+
+    starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get("category"), tags=starting_mongodb_object.get("tags"))
+    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get("category"), tags=disliked_mongodb_object.get("other_tags"))
+
+    profile = await get_userdefined_profile(current_user)
+
+    recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
+
+    clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
+    rec = list(get_n_closest(clothing_tag_embedded,1))[0]
+    rec['_id'] = str(rec['_id'])
+
+    #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
+    return rec
