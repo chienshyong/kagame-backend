@@ -325,7 +325,6 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
         other_tags_embed.append(embedding_data[i].embedding)
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
-
 def get_n_closest(tag_embed: ClothingTagEmbed, n: int):
     FIRST_STAGE_FILTER_RATIO = 10
     CANDIDATE_TO_LIMIT_RATIO = 10
@@ -431,6 +430,7 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
                     "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
                     User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['skin_tone']} skin, {profile['style']} style.
                     Likes: {profile['clothing_likes']}.
+                    Likes: {profile['clothing_likes']}.
                     Dislikes: {profile['clothing_dislikes']}.
                     """}
                 ]
@@ -519,6 +519,78 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
             clothing_tags.append(ClothingTag(**clothing_tag))
 
     return clothing_tags
+
+def get_n_closest_with_filter(tag_embed: ClothingTagEmbed, category: str, n: int):
+    """
+    Returns the n closest items in the specified category using vector search.
+    """
+    # You can reuse the FIRST_STAGE_FILTER_RATIO, weighting, etc. from get_n_closest.
+    # The main difference is the pipeline's filter includes "category": category.
+    FIRST_STAGE_FILTER_RATIO = 10
+    CANDIDATE_TO_LIMIT_RATIO = 10
+    CLOTHING_TYPE_WEIGHT = 0.7
+    COLOR_WEIGHT = 0.3
+
+    from services.metadata import get_catalogue_metadata
+    import random
+    import services.mongodb as mongodb
+
+    bucket_count = get_catalogue_metadata().bucket_count
+    bucket_num = random.randint(1, bucket_count)
+
+    pipeline = [
+        {
+            '$vectorSearch': {
+                'index': 'vector_search_with_category_filter',
+                'path': 'clothing_type_embed',
+                'queryVector': tag_embed.clothing_type_embed,
+                'numCandidates': n * FIRST_STAGE_FILTER_RATIO * CANDIDATE_TO_LIMIT_RATIO,
+                'limit': n * FIRST_STAGE_FILTER_RATIO,
+                'filter': {
+                    'bucket_num': bucket_num,
+                    'category': category
+                }
+            }
+        },
+        # Add color_score, combined_score, etc., same as get_n_closest
+        {
+            "$addFields": {
+                "color_score": calculate_dot_product("$color_embed", tag_embed.color_embed)
+            }
+        },
+        {
+            "$addFields": {
+                "combined_score": {
+                    "$add": [
+                        {"$multiply": [CLOTHING_TYPE_WEIGHT, {"$meta": "vectorSearchScore"}]},
+                        {"$multiply": [COLOR_WEIGHT, "$color_score"]}
+                    ]
+                }
+            }
+        },
+        {
+            "$sort": {"combined_score": -1}
+        },
+        {
+            "$limit": n
+        },
+        {
+            "$project": {
+                '_id': 1,
+                'name': 1,
+                'category': 1,
+                'price': 1,
+                'image_url': 1,
+                'product_url': 1,
+                'clothing_type': 1,
+                'color': 1,
+                'material': 1,
+                'other_tags': 1
+            }
+        }
+    ]
+    return mongodb.catalogue.aggregate(pipeline)
+
 
 def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: WardrobeTag, dislike_reason: str, profile: dict):
     #generates a new recommendation given a disliked previous one. Should be called when user dislikes a recommended item from the wardrobe page.

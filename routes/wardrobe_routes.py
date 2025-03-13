@@ -149,7 +149,7 @@ async def get_available_categories():
 
 
 @router.get("/wardrobe/search/{search_term}")
-async def function_name(search_term=str, current_user: UserItem = Depends(get_current_user)):
+async def wardrobe_search(search_term=str, current_user: UserItem = Depends(get_current_user)):
     # Find documents where 'name' contains the search term (case-insensitive)
     user_id = current_user['_id']
     items = mongodb.wardrobe.find({
@@ -169,7 +169,7 @@ async def function_name(search_term=str, current_user: UserItem = Depends(get_cu
 
 
 @router.get("/wardrobe/wardrobe_recommendation")
-async def function_name(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
+async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
     # Given the id of a user's wardrobe item, generate an outfit. You can add ptional constraints
     result = mongodb.wardrobe.find_one({"_id": ObjectId(_id), "user_id": current_user['_id']})
 
