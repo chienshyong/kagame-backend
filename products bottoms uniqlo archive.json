@@ -1,0 +1,767 @@
+[
+  {
+    "name": "Sweat Wide Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476225/item/sggoods_03_476225_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476225-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Geared Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/463871/item/goods_31_463871_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463871-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Geared Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463870/item/sggoods_09_463870_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463870-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Cargo Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470633/item/sggoods_09_470633_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470633-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Fit Cargo Half Pants",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476195/item/sggoods_56_476195_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476195-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Fit Cargo Shorts",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476194/item/sggoods_34_476194_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476194-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Chino Shorts",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/476167/item/goods_32_476167_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476167-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Chino Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470619/item/sggoods_32_470619_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470619-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Chino Shorts (Relaxed Fit)",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470482/item/sggoods_09_470482_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470482-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Denim Work Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477165/item/sggoods_64_477165_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477165-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Slim Fit Shorts Print",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470625/item/sggoods_09_470625_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470625-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Slim Fit Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/455533/item/sggoods_32_455533_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E455533-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Shorts",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470631/item/sggoods_69_470631_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470631-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Shorts",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/477780/item/goods_09_477780_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477780-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Shorts (Pattern)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/467577/item/goods_69_467577_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467577-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Shorts",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/466913/item/goods_32_466913_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E466913-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Shorts",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/451086/item/sggoods_09_451086_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E451086-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Active Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475386/item/sggoods_31_475386_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475386-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Active Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/465207/item/sggoods_08_465207_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E465207-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/479094/item/sggoods_08_479094_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E479094-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Active Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478993/item/sggoods_04_478993_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478993-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Sweat Shorts",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475827/item/sggoods_65_475827_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475827-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Easy Shorts Chambray",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/479725/item/sggoods_68_479725_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E479725-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Easy Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476081/item/sggoods_08_476081_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476081-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "AIRism Cotton Easy Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474127/item/sggoods_08_474127_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474127-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Easy Shorts (Seersucker)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474123/item/sggoods_64_474123_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474123-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "AIRism Cotton Easy Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/464823/item/goods_01_464823_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E464823-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Easy Shorts (Seersucker)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/458325/item/sggoods_64_458325_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E458325-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Dry Stretch Easy Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/454780/item/goods_31_454780_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E454780-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Linen Blend Easy Shorts",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477660/item/sggoods_32_477660_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477660-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Tapered Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475595/item/sggoods_65_475595_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475595-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Straight Jeans (Longer Length)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/473319/item/sggoods_64_473319_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473319-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Straight Jeans (Regular Length)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470542/item/sggoods_02_470542_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470542-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Slim Fit Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475547/item/sggoods_62_475547_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475547-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Slim Fit Jeans (Damaged)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463907/item/sggoods_62_463907_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463907-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Slim Fit Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/459688/item/sggoods_65_459688_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E459688-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "EZY Ultra Stretch Jeans (Regular Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/455476/item/sggoods_68_455476_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E455476-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "EZY Ultra Stretch Jeans (Longer Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477153/item/sggoods_63_477153_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477153-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "EZY Ultra Stretch Jeans (Longer Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/463973/item/goods_09_463973_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463973-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Colour Jeans (Longer Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/457575/item/sggoods_32_457575_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E457575-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/463905/item/goods_07_463905_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463905-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/461701/item/goods_65_461701_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E461701-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Colour Jeans (Regular Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/455471/item/sggoods_32_455471_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E455471-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Color Jeans",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/470513/item/goods_67_470513_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470513-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Selvedge Slim Fit Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/418910/item/sggoods_69_418910_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E418910-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470524/item/sggoods_65_470524_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470524-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Jeans",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477327/item/sggoods_65_477327_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477327-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Fit Chino Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470549/item/sggoods_09_470549_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470549-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Fit Cargo Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476193/item/sggoods_09_476193_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476193-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Sweat Wide Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/471809/item/sggoods_69_471809_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E471809-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Pants (Cotton Like) (Length: 76・85cm) (Co-ord)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463820/item/sggoods_32_463820_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463820-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Pants (Wool Like)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/447780/item/sggoods_69_447780_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E447780-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Pants (Houndstooth)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/467574/item/sggoods_05_467574_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467574-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Pleated Pants",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475602/item/sggoods_69_475602_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475602-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Pleated Wide Chino Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470603/item/sggoods_32_470603_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470603-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Slim Fit Chino Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/450251/item/sggoods_32_450251_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E450251-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Easy Work Pants",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475601/item/sggoods_34_475601_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475601-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Cargo Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463957/item/sggoods_09_463957_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463957-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Miracle Air Pants (Cotton Like) (Regular Length) (Co-ord)",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/444596/item/goods_09_444596_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E444596-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Smart Ankle Pants (Wool-like) (Regular Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/455492/item/sggoods_06_455492_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E455492-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Active Tapered Pants (Longer Length)",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477749/item/sggoods_69_477749_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477749-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Smart Ankle Pants Glen Check",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475574/item/sggoods_04_475574_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475574-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Pants (Regular Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475598/item/sggoods_08_475598_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475598-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Active Track Pants",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475385/item/sggoods_04_475385_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475385-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch DRY-EX Tapered Pants (Regular Length)",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/465491/item/sggoods_07_465491_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E465491-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch Pants (Longer Length)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477837/item/sggoods_09_477837_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477837-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch DRY-EX Jogger Pants (Longer Length)",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/467767/item/sggoods_09_467767_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467767-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Ultra Stretch DRY-EX Jogger Pants",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/465206/item/sggoods_02_465206_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E465206-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Linen Blend Relaxed Pants",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477637/item/sggoods_31_477637_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477637-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Linen Blend Relaxed Pants",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463857/item/sggoods_57_463857_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463857-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Cotton Relaxed Ankle Pants (Denim)",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/461420/item/goods_07_461420_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E461420-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Geared Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/463981/item/sggoods_08_463981_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E463981-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Sweat Pants (Co-ord)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/451648/item/sggoods_08_451648_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E451648-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Cotton Relaxed Ankle Pants",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/460150/item/sggoods_52_460150_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E460150-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Stretch Easy Ankle Pants Stripe",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476052/item/sggoods_67_476052_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476052-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "KAWS + Warhol Sweat Pants",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/476120/item/goods_09_476120_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476120-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Geared Shorts Print",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477206/item/sggoods_06_477206_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477206-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "DRY-EX Shorts",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476224/item/sggoods_07_476224_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476224-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Pleated Wide Pants",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475596/item/sggoods_02_475596_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475596-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Wide Fit Half Pants",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470635/item/sggoods_09_470635_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470635-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Linen Blend Easy Pants",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478670/item/sggoods_09_478670_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478670-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Light Weight Sweat Wide Pants",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476214/item/sggoods_07_476214_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476214-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "SpongeBob SquarePants Cactus Plant Flea Market UT (Short Sleeve Graphic T-Shirt)",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477915/item/sggoods_09_477915_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477915-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "TATE UT (Short Sleeve Graphic T-Shirt)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477528/item/sggoods_30_477528_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477528-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  },
+  {
+    "name": "Soft Flannel Skipper Long Sleeve Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/469423/item/sggoods_32_469423_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E469423-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Bottoms"
+  }
+]

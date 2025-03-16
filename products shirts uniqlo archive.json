@@ -1,0 +1,758 @@
+[
+  {
+    "name": "AIRism Cotton Open Collar Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/480121/item/sggoods_31_480121_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E480121-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "AIRism Cotton Pique Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475367/item/sggoods_31_475367_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475367-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "AIRism Cotton Short Sleeve Polo Shirt (Open Collar)",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/467515/item/goods_00_467515_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467515-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "AIRism Cotton Short Sleeve Polo Shirt (Full Open)",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/467039/item/sggoods_06_467039_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467039-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "AIRism Cotton Pique Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/465196/item/sggoods_02_465196_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E465196-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Dry Pique Striped Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478788/item/sggoods_69_478788_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478788-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Dry Pique Short Sleeve Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/455388/item/sggoods_63_455388_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E455388-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Dry Pique Striped Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477678/item/sggoods_53_477678_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477678-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Dry Pique Striped Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477677/item/sggoods_54_477677_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477677-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Dry Pique Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476227/item/sggoods_69_476227_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476227-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "DRY-EX Polo Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477221/item/sggoods_03_477221_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477221-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "DRY-EX Polo Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475765/item/sggoods_68_475765_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475765-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "DRY-EX Polo Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/475373/item/sggoods_03_475373_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475373-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "DRY-EX Half-Zip Polo Shirt",
+    "price": 7.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/475281/item/goods_06_475281_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475281-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "DRY-EX Short Sleeve Polo Shirt",
+    "price": 7.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/465197/item/sggoods_07_465197_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E465197-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Oversized Striped Rugger Polo Shirt Long Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477796/item/sggoods_69_477796_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477796-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Washable Knitted Polo Sweater Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476997/item/sggoods_68_476997_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476997-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Premium Linen Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477641/item/sggoods_08_477641_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477641-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Premium Linen Shirt Long Sleeve Striped",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474508/item/sggoods_01_474508_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474508-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Premium Linen Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/468857/item/goods_64_468857_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E468857-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Premium Linen Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/457428/item/goods_00_457428_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E457428-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Cotton Linen Shirt Jacket Long Sleeve",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477557/item/sggoods_57_477557_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477557-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Cotton Linen Shirt Short Sleeve Check",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477903/item/sggoods_50_477903_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477903-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Cotton Linen Shirt Short Sleeve Stripe",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477902/item/sggoods_13_477902_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477902-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Cotton Linen Shirt Short Sleeve",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477181/item/sggoods_63_477181_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477181-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Oxford Long Sleeve Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/450259/item/sggoods_06_450259_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E450259-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Oxford Shirt Long Sleeve (Striped)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/452298/item/sggoods_65_452298_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E452298-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477642/item/sggoods_12_477642_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477642-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Shirt Long Sleeve Striped",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476025/item/sggoods_30_476025_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476025-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Shirt Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477648/item/sggoods_62_477648_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477648-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Shirt Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477643/item/sggoods_37_477643_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477643-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Shirt Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476246/item/sggoods_31_476246_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476246-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Extra Fine Cotton Broadcloth Long Sleeve Shirt (Checked)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/453151/item/sggoods_66_453151_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E453151-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Extra Fine Cotton Broadcloth Long Sleeve Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/450260/item/sggoods_64_450260_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E450260-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Extra Fine Cotton Broadcloth Long Sleeve Shirt (Striped)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/453144/item/sggoods_54_453144_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E453144-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Long Sleeve Shirt (Checked)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476018/item/sggoods_69_476018_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476018-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Long Sleeve Shirt (Checked)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476016/item/sggoods_64_476016_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476016-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Long Sleeve Shirt (Checked)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476014/item/sggoods_67_476014_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476014-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474574/item/sggoods_01_474574_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474574-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Oversized Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/471799/item/sggoods_00_471799_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E471799-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Extra Fine Cotton Short Sleeve Shirt",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/457450/item/goods_18_457450_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E457450-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Chambray Overshirt Long Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/479644/item/sggoods_61_479644_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E479644-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Denim Overshirt Long Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476445/item/sggoods_63_476445_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476445-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Modal Cotton Open Collar Shirt Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477644/item/sggoods_30_477644_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477644-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Modal Cotton Open Collar Shirt Short Sleeve Printed",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474522/item/sggoods_56_474522_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474522-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Modal Cotton Open Collar Shirt Short Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474521/item/sggoods_09_474521_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474521-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Modal Cotton Printed Open Collar Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473060/item/goods_09_473060_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473060-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Printed Open Collar Short Sleeve Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/467513/item/goods_01_467513_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467513-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Open Collar Short Sleeve Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/464938/item/sggoods_57_464938_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E464938-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470192/item/sggoods_03_470192_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470192-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470191/item/sggoods_08_470191_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470191-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470190002/item/sggoods_56_470190002_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470190-002",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470189/item/sggoods_30_470189_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470189-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470188003/item/sggoods_63_470188003_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470188-003",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470188001/item/sggoods_09_470188001_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470188-001",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Regular Collar Long Sleeve Checked Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470187/item/sggoods_15_470187_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470187-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Long Sleeve Shirt",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/470182/item/sggoods_69_470182_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470182-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Long Sleeve Shirt (Checked)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478930/item/sggoods_55_478930_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478930-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Long Sleeve Shirt (Checked)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478929/item/sggoods_17_478929_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478929-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Flannel Long Sleeve Shirt (Checked)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/478928/item/sggoods_16_478928_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E478928-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Twill Overshirt Long Sleeve",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476008/item/sggoods_32_476008_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476008-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Broadcloth Long Sleeve Shirt (Checked)",
+    "price": 39.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476017/item/sggoods_13_476017_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476017-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Striped Slim Fit Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473399/item/goods_62_473399_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473399-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473297/item/goods_64_473297_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473297-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Striped Slim Fit Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/470248/item/goods_63_470248_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E470248-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Striped Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/467483/item/goods_63_467483_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E467483-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit No Pocket Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/456592/item/goods_60_456592_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E456592-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit No Pocket Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/456588/item/goods_64_456588_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E456588-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/477835/item/goods_64_477835_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477835-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/477833/item/goods_62_477833_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477833-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/475905/item/goods_63_475905_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E475905-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Slim Fit Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/456590/item/goods_00_456590_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E456590-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Jersey Slim Fit Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/477178/item/goods_69_477178_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477178-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Jersey Slim Fit Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/477177/item/goods_66_477177_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477177-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Jersey Slim Fit Long Sleeve Shirt",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473535/item/goods_00_473535_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473535-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Jersey Slim Fit Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473534/item/goods_63_473534_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473534-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Super Non Iron Jersey Slim Fit Long Sleeve Shirt (Striped)",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/AsianCommon/imagesgoods/473533/item/goods_66_473533_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E473533-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "AIRism Cotton Polo Shirt",
+    "price": 29.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476217/item/sggoods_07_476217_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476217-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Premium Linen Shirt Long Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/474509/item/sggoods_03_474509_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E474509-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Utility Oversized Shirt Short Sleeve",
+    "price": 49.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476245/item/sggoods_09_476245_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476245-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Long Shirt Long Sleeve",
+    "price": 59.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/476243/item/sggoods_05_476243_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E476243-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "SpongeBob SquarePants Cactus Plant Flea Market UT (Short Sleeve Graphic T-Shirt)",
+    "price": 14.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477915/item/sggoods_09_477915_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477915-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "TATE UT (Short Sleeve Graphic T-Shirt)",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/477528/item/sggoods_30_477528_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E477528-000",
+    "gender": "U",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  },
+  {
+    "name": "Soft Flannel Skipper Long Sleeve Shirt",
+    "price": 19.9,
+    "image_url": "https://image.uniqlo.com/UQ/ST3/sg/imagesgoods/469423/item/sggoods_32_469423_3x4.jpg",
+    "product_link": "https://www.uniqlo.com/sg/en/products/E469423-000",
+    "gender": "M",
+    "retailer": "UNIQLO",
+    "category": "Tops"
+  }
+]

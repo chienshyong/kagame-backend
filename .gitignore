@@ -5,3 +5,5 @@ secretstuff/*
 keys*
 keys/*
 .venv
+*.DS_Store
+
