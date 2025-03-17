@@ -18,6 +18,7 @@ from services.mongodb import UserItem
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 import json
+from pydantic import parse_obj_as
 
 router = APIRouter()
 
@@ -251,31 +252,76 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
     if not user or "user_style" not in user:
         raise HTTPException(status_code=400, detail="User style not found.")
     
+    # Parse user style
     try:
         user_style_data = user["user_style"]
-        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
+        user_style = parse_obj_as(StyleAnalysisResponse, user_style_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error parsing user style: {str(e)}")
+    
+    
+    # Ensure the recommendations_refresh_needed field exists in the DB
+    # If it doesn't, create it now, set to True.
+    if "recommendations_refresh_needed" not in user:
+        mongodb.users.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {"recommendations_refresh_needed": True}}
+        )
+        refresh_needed = True
+    else:
+        refresh_needed = user["recommendations_refresh_needed"]
+
+    # Either grab existing style_recommendations or regenerate them
+    style_recommendations = user.get("style_recommendations", [])
+
+    if refresh_needed:
+        # Build new style_recommendations from the user's style
+        new_recommendations = []
+        for style_suggestion in user_style.top_styles:
+            # Combine the style and reasoning into text for the embedding
+            style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
+            clothing_tag = str_to_clothing_tag(style_prompt)
+            tag_embed = clothing_tag_to_embedding(clothing_tag)
+            new_recommendations.append({
+                'style_name': style_suggestion.style,
+                'clothing_tag': clothing_tag.dict(),
+                'tag_embed': tag_embed.dict()
+            })
+
+        # Store them in the user record
+        mongodb.users.update_one(
+            {"_id": current_user["_id"]},
+            {
+                "$set": {
+                    "style_recommendations": new_recommendations,
+                    "recommendations_refresh_needed": False
+                }
+            }
+        )
+        style_recommendations = new_recommendations
+
+    # Now do the usual logic to get recommended items via vector search
+    # (either from fresh or cached style_recommendations).
+    if not style_recommendations:
+        raise HTTPException(status_code=400, detail="No style recommendations available.")
 
     recommendations = []
     item_ids = set()
-    styles_count = len(user_style.top_styles)
-    if styles_count == 0:
-        raise HTTPException(status_code=400, detail="No styles found in user style analysis.")
-
+    styles_count = len(style_recommendations)
     items_per_style = max(n // styles_count, 1)
 
-    for style_suggestion in user_style.top_styles:
-        style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
-        clothing_tag = str_to_clothing_tag(style_prompt)
-        tag_embed = clothing_tag_to_embedding(clothing_tag)
+    for style_rec in style_recommendations:
+        # Rebuild the ClothingTagEmbed from the dict
+        tag_embed_dict = style_rec['tag_embed']
+        tag_embed = parse_obj_as(ClothingTagEmbed, tag_embed_dict)
+
+        # Perform vector search
         recs = list(get_n_closest(tag_embed, items_per_style))
         for rec in recs:
             rec_id_str = str(rec["_id"])
             if rec_id_str in item_ids:
                 continue
             item_ids.add(rec_id_str)
-
             item_data = {
                 "id": rec_id_str,
                 "name": rec.get("name", ""),
@@ -296,7 +342,6 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
             break
 
     return recommendations
-
 
 class LooseRecommendedItem(BaseModel):
     reason: str
@@ -521,7 +566,6 @@ def get_item_by_id(item_id: str):
     del item_doc["_id"]
     return item_doc
 
-
 @router.post("/wardrobe/check-style-analysis")
 async def check_style_analysis(current_user = Depends(get_current_user)):
     """
@@ -548,19 +592,23 @@ async def check_style_analysis(current_user = Depends(get_current_user)):
         #    Condition 2: user added >=5 items since last analysis
         if last_analysis_count == 0 or (total_count - last_analysis_count >= 5):
             # Run style analysis
-            # Option A: Directly call your existing async function:
             style_analysis = await get_style_analysis(current_user)
             
             # Run style embedding
-            # Option A: Directly call your existing function:
             _ = get_user_style_embedding(current_user)
             
-            # Update last_analysis_count to current total
+            # Update last_analysis_count and set the refresh flag
             mongodb.users.update_one(
                 {"_id": user_id},
-                {"$set": {"last_analysis_count": total_count}}
+                {
+                    "$set": {
+                        "last_analysis_count": total_count,
+                        "recommendations_refresh_needed": True
+                    }
+                }
             )
-            return {"message": "Style analysis and embedding performed."}
+            return {"message": "Style analysis performed. Recommendations refresh flagged."}
+        
         else:
             return {"message": "No style analysis triggered. Not enough new items."}
     except Exception as e:
