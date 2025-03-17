@@ -1,7 +1,26 @@
+#python
 __pycache__/
+
+#mongo
 mongodb/
 
+# secrets
 secretstuff/*
 keys*
 keys/*
+
+# vscode
+.vscode
+
+# mac
+.DS_Store
+
+
+# Environments
+.env
 .venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/

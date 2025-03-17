@@ -520,3 +520,48 @@ def get_item_by_id(item_id: str):
     item_doc["id"] = str(item_doc["_id"])
     del item_doc["_id"]
     return item_doc
+
+
+@router.post("/wardrobe/check-style-analysis")
+async def check_style_analysis(current_user = Depends(get_current_user)):
+    """
+    Checks the user's wardrobe count. If we've never run analysis before
+    (last_analysis_count == 0) OR they've added 5 or more items since last analysis,
+    then run style analysis and style embedding.
+    Otherwise, do nothing.
+    """
+    try:
+        user_id = current_user["_id"]
+        
+        # 1) Count how many items are in the user's wardrobe
+        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})
+        
+        # 2) Fetch the user's doc and check last_analysis_count
+        user_doc = mongodb.users.find_one({"_id": user_id})
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found.")
+        
+        last_analysis_count = user_doc.get("last_analysis_count", 0)
+        
+        # 3) Decide if we need to run style analysis
+        #    Condition 1: first-time analysis -> last_analysis_count == 0
+        #    Condition 2: user added >=5 items since last analysis
+        if last_analysis_count == 0 or (total_count - last_analysis_count >= 5):
+            # Run style analysis
+            # Option A: Directly call your existing async function:
+            style_analysis = await get_style_analysis(current_user)
+            
+            # Run style embedding
+            # Option A: Directly call your existing function:
+            _ = get_user_style_embedding(current_user)
+            
+            # Update last_analysis_count to current total
+            mongodb.users.update_one(
+                {"_id": user_id},
+                {"$set": {"last_analysis_count": total_count}}
+            )
+            return {"message": "Style analysis and embedding performed."}
+        else:
+            return {"message": "No style analysis triggered. Not enough new items."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
