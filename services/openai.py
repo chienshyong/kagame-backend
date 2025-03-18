@@ -345,8 +345,8 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Opt
     # then find n * second_stage closest score (0.7*clothing_type + 0.3*color) (or whatever the multiplier is)
     # then among those, find the n items with the largest number of similar tags. (See synonym_count_per_tag)
     CANDIDATE_TO_LIMIT_RATIO = 10
-    FIRST_STAGE_FILTER_RATIO = 50
-    SECOND_STAGE_FILTER_RATIO = 10
+    FIRST_STAGE_FILTER_RATIO = 100
+    SECOND_STAGE_FILTER_RATIO = 20
     CLOTHING_TYPE_WEIGHT = 0.7
     COLOR_WEIGHT = 0.3
 
@@ -588,6 +588,7 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
 
 
 def get_n_closest_with_filter(tag_embed: ClothingTagEmbed, category: str, n: int):
+    print("############ IMPORTANT #########\n\n\n'get_n_closest_with_filter' is deprecated. Use get_n_closest instead, it has an optional argument.")
     """
     Returns the n closest items in the specified category using vector search.
     """
