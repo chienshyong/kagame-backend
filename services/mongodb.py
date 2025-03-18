@@ -48,6 +48,7 @@ db = client.kagame
 catalogue = db.catalogue
 users = db.users
 wardrobe = db.wardrobe
+tag_embeddings = db.tag_embeddings
 metadata_collection = db.metadata
 
 CATALOGUE_COLLECTION_NAME = "catalogue"
