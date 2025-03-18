@@ -196,18 +196,26 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
     profile = current_user["userdefined_profile"]
 
-    #just keeping the latest 5 entries and keeping the datatype as list
-    profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
-
-    #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
-    dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
+    if profile['clothing_likes'] != None:
+        #just keeping the latest 5 entries and keeping the datatype as list
+        profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
+    else:
+        profile['clothing_likes'] = []
     
-    #get just the dislike reason from the list and add it to another list with just the dislike reasons
-    dislikes_list = []
-    for item in dislikes:
-        dislikes_list.append(item[3])
+    if profile['clothing_dislikes'] != None:
+        #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
+        dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
 
-    profile['clothing_dislikes'] = dislikes_list
+        #get just the dislike reason from the list and add it to another list with just the dislike reasons
+        dislikes_list = []
+        for item in dislikes:
+            dislikes_list.append(item[3])
+
+        profile['clothing_dislikes'] = dislikes_list
+    
+    else:
+        profile['clothing_dislikes'] = []
+
     return profile
 
 @router.get("/wardrobe/feedback_recommendation")
