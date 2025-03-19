@@ -1,11 +1,13 @@
-from typing import List, Optional, Literal
+# openai.py
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
-from services.mongodb import catalogue, tag_embeddings
+from services.mongodb import catalogue, db
 from services.metadata import get_catalogue_metadata
 from pydantic import BaseModel
 import random
 import json
+from bson import ObjectId
+from typing import Dict, List
 
 # Hardcoded available categories
 category_labels = ["Tops", "Bottoms", "Dresses", "Shoes", "Jackets", "Accessories"]
@@ -13,118 +15,117 @@ category_labels = ["Tops", "Bottoms", "Dresses", "Shoes", "Jackets", "Accessorie
 # Fixed formats which GPT4 will force to return
 
 create_outfit_tool = {
-    "type": "function",
-    "function": {
+      "type": "function",
+      "function": {
         "name": "create_outfit",
         "description": "Assembles an outfit consisting of top, bottom, and shoes with specified attributes.",
         "parameters": {
-            "type": "object",
-            "required": [
-                "top",
-                "shoes",
-                "bottom"
-            ],
-            "properties": {
-                "top": {
-                    "type": "object",
-                    "required": [
-                        "color",
-                        "material",
-                        "other_tags",
-                        "clothing_type"
-                    ],
-                    "properties": {
-                        "color": {
-                            "type": "string",
-                            "description": "Color of the top garment"
-                        },
-                        "material": {
-                            "type": "string",
-                            "description": "Material from which the top is made"
-                        },
-                        "other_tags": {
-                            "type": "array",
-                            "description": "List of tags describing the style of the top",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "clothing_type": {
-                            "type": "string",
-                            "description": "Type of clothing for the top"
-                        }
-                    },
-                    "additionalProperties": False
+          "type": "object",
+          "required": [
+            "top",
+            "shoes",
+            "bottom"
+          ],
+          "properties": {
+            "top": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the top garment"
                 },
-                "shoes": {
-                    "type": "object",
-                    "required": [
-                        "color",
-                        "material",
-                        "other_tags",
-                        "clothing_type"
-                    ],
-                    "properties": {
-                        "color": {
-                            "type": "string",
-                            "description": "Color of the shoes"
-                        },
-                        "material": {
-                            "type": "string",
-                            "description": "Material from which the shoes are made"
-                        },
-                        "other_tags": {
-                            "type": "array",
-                            "description": "List of tags describing the style of the shoes",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "clothing_type": {
-                            "type": "string",
-                            "description": "Type of shoes"
-                        }
-                    },
-                    "additionalProperties": False
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the top is made"
                 },
-                "bottom": {
-                    "type": "object",
-                    "required": [
-                        "color",
-                        "material",
-                        "other_tags",
-                        "clothing_type"
-                    ],
-                    "properties": {
-                        "color": {
-                            "type": "string",
-                            "description": "Color of the bottom garment"
-                        },
-                        "material": {
-                            "type": "string",
-                            "description": "Material from which the bottom is made"
-                        },
-                        "other_tags": {
-                            "type": "array",
-                            "description": "List of tags describing the style of the bottom",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "clothing_type": {
-                            "type": "string",
-                            "description": "Type of clothing for the bottom"
-                        }
-                    },
-                    "additionalProperties": False
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the top",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of clothing for the top"
                 }
+              },
+              "additionalProperties": False
             },
-            "additionalProperties": False
+            "shoes": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the shoes"
+                },
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the shoes are made"
+                },
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the shoes",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of shoes"
+                }
+              },
+              "additionalProperties": False
+            },
+            "bottom": {
+              "type": "object",
+              "required": [
+                "color",
+                "material",
+                "other_tags",
+                "clothing_type"
+              ],
+              "properties": {
+                "color": {
+                  "type": "string",
+                  "description": "Color of the bottom garment"
+                },
+                "material": {
+                  "type": "string",
+                  "description": "Material from which the bottom is made"
+                },
+                "other_tags": {
+                  "type": "array",
+                  "description": "List of tags describing the style of the bottom",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "clothing_type": {
+                  "type": "string",
+                  "description": "Type of clothing for the bottom"
+                }
+              },
+              "additionalProperties": False
+            }
+          },
+          "additionalProperties": False
         },
         "strict": True
+      }
     }
-}
-
 
 class ClothingTag(BaseModel):  # For catalogue
     clothing_type: str
@@ -492,8 +493,8 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
                 "role": "system",
                 "content": [
                     {
-                        "type": "text",
-                        "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
+                    "type": "text",
+                    "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
                     User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['skin_tone']} skin, {profile['style']} style.
                     Likes: {profile['clothing_likes']}.
                     Likes: {profile['clothing_likes']}.
@@ -752,3 +753,176 @@ def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: 
     output_json = json.loads(output)
     clothing_item = ClothingTag(**output_json)
     return clothing_item
+
+def generate_base_catalogue_recommendation(tag: WardrobeTag, additional_prompt: str = "") -> list[ClothingTag]:
+    tag_dict = tag.model_dump()
+    if additional_prompt != "":
+        tag_dict["additional_prompt"] = additional_prompt
+
+    prompt = json.dumps(tag_dict)
+    openai_output = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                    "type": "text",
+                    "text": """You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input and the additional context (if any) when choosing the overall style of the outfit. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items."""
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        response_format={
+            "type": "json_object"
+        },
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "recommend_clothing",
+                    "strict": True,
+                    "parameters": {
+                        "type": "object",
+                        "required": [
+                            "recommendations"
+                        ],
+                        "properties": {
+                            "recommendations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": [
+                                        "clothing_type",
+                                        "color",
+                                        "material",
+                                        "other_tags"
+                                    ],
+                                    "properties": {
+                                        "color": {
+                                            "type": "string",
+                                            "description": "Color of the clothing item"
+                                        },
+                                        "material": {
+                                            "type": "string",
+                                            "description": "Material of the clothing item"
+                                        },
+                                        "other_tags": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "description": "Additional tags related to clothing characteristics"
+                                            },
+                                            "description": "Additional tags describing the clothing"
+                                        },
+                                        "clothing_type": {
+                                            "type": "string",
+                                            "description": "Type of clothing item"
+                                        }
+                                    },
+                                    "additionalProperties": False
+                                },
+                                "description": "Array of clothing recommendations"
+                            }
+                        },
+                        "additionalProperties": False
+                    },
+                    "description": "Generates clothing recommendations based on user preferences"
+                }
+            }
+        ],
+        tool_choice={"type": "function", "function": {"name": "recommend_clothing"}},
+        temperature=1,
+        max_completion_tokens=2048,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+
+    clothing_tags: list[ClothingTag] = []
+
+    for tool_call_str in openai_output.choices[0].message.tool_calls:
+        tool_call_json = json.loads(tool_call_str.function.arguments)
+        for clothing_tag in tool_call_json["recommendations"]:
+            clothing_tags.append(ClothingTag(**clothing_tag))
+
+    return clothing_tags
+
+def compile_tags_and_embeddings_for_item(item_id: str) -> int:
+    """
+    For a single catalogue item (specified by `item_id`), 
+    gather the unique (tag -> embedding) pairs from:
+      - item['other_tags'] / item['other_tags_embed']
+      - each base_recommendation in item['base_recommendations'], 
+        specifically rec['other_tags'] / rec['other_tags_embed'].
+    Insert them into 'tag_embeddings' collection (one doc per unique tag).
+
+    Returns the number of **new** tags inserted (i.e. if the tag already exists in tag_embeddings, skip).
+    """
+    catalogue_col = db.catalogue
+    tags_col = db.tag_embeddings
+
+    try:
+        object_id = ObjectId(item_id)
+    except:
+        # Not a valid ObjectId; you could raise an Exception or return 0
+        return 0
+
+    # 1) Fetch the catalogue item
+    item = catalogue_col.find_one({"_id": object_id})
+    if not item:
+        return 0  # not found, nothing to do
+
+    # 2) Prepare a dictionary for tag->embedding from this single item
+    item_tag_dict: Dict[str, list[float]] = {}
+
+    # A) Process the item’s own other_tags
+    other_tags = item.get("other_tags", [])
+    other_tags_embed = item.get("other_tags_embed", [])
+    if len(other_tags) == len(other_tags_embed):
+        for tag, embed_vec in zip(other_tags, other_tags_embed):
+            item_tag_dict[tag] = embed_vec  # override if repeated in the same item
+
+    # B) Process each base_recommendation
+    base_recs = item.get("base_recommendations", [])
+    for rec in base_recs:
+        rec_tags = rec.get("other_tags", [])
+        rec_tags_embed = rec.get("other_tags_embed", [])
+        if len(rec_tags) == len(rec_tags_embed):
+            for tag, embed_vec in zip(rec_tags, rec_tags_embed):
+                item_tag_dict[tag] = embed_vec
+
+    # 3) For each unique tag from this item, check if it already exists in tag_embeddings
+    #    and insert if missing
+    new_insert_count = 0
+    for tag, embed_vec in item_tag_dict.items():
+        # If you want to ensure uniqueness by 'tag', you can attempt an upsert or findOne check:
+        existing = tags_col.find_one({"tag": tag})
+        if existing:
+            # Already in the collection; skip if you don't want to update
+            # or optionally upsert with new embedding:
+            # tags_col.update_one({"_id": existing["_id"]}, {"$set": {"embedding": embed_vec}})
+            continue
+        else:
+            tags_col.insert_one({"tag": tag, "embedding": embed_vec})
+            new_insert_count += 1
+
+    return new_insert_count
+
+
+def get_all_catalogue_ids() -> list[str]:
+    """
+    Returns a list of all catalogue item string IDs from `db.catalogue`.
+    """
+    catalogue_col = db.catalogue
+    ids = catalogue_col.find({}, {"_id": 1})
+    return [str(doc["_id"]) for doc in ids]

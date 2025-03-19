@@ -1,3 +1,4 @@
+# catalogue_routes.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 import services.mongodb as mongodb
 from services.openai import (
@@ -8,17 +9,21 @@ from services.openai import (
     ClothingTagEmbed,
     user_style_to_embedding,
     StyleAnalysisResponse,
-    get_n_closest_with_filter
+    get_n_closest_with_filter,
+    compile_tags_and_embeddings_for_item,
+    get_all_catalogue_ids,
+    WardrobeTag, 
+    generate_base_catalogue_recommendation
 )
 from bson import ObjectId
 from services.user import get_current_user
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, parse_obj_as, ValidationError
 from services.mongodb import UserItem
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 import json
-from pydantic import parse_obj_as
+from datetime import datetime
 
 router = APIRouter()
 
@@ -613,3 +618,684 @@ async def check_style_analysis(current_user = Depends(get_current_user)):
             return {"message": "No style analysis triggered. Not enough new items."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @router.post("/catalogue/generate-base-recommendations")
+# async def generate_base_recommendations(
+#     before_date: Optional[datetime] = Query(None, description="Process items where recommendations were created before this date"),
+#     n: Optional[int] = Query(None, description="Number of items to process (all if not specified)"),
+#     current_user: UserItem = Depends(get_current_user)
+# ):
+#     # Check permissions if necessary; example:
+#     # if not current_user.get('is_admin', False):
+#     #     raise HTTPException(status_code=403, detail="Not authorized")
+
+#     # Build the query
+#     if before_date:
+#         query = {
+#             "$or": [
+#                 {"base_recommendations": {"$exists": False}},
+#                 {"base_recommendations_created_at": {"$lt": before_date}}
+#             ]
+#         }
+#     else:
+#         query = {"base_recommendations": {"$exists": False}}
+
+#     # Fetch items
+#     items_cursor = mongodb.catalogue.find(query)
+#     if n is not None and n > 0:
+#         items_cursor = items_cursor.limit(n)
+
+#     processed_count = 0
+
+#     for item in items_cursor:
+#         try:
+#             # Construct WardrobeTag from item data
+#             name = item.get('name', '')
+#             category = item.get('category', '')
+#             clothing_type = item.get('clothing_type', '')
+#             color = item.get('color', '')
+#             material = item.get('material', '')
+#             other_tags = item.get('other_tags', [])
+
+#             tags = []
+#             if clothing_type:
+#                 tags.append(clothing_type)
+#             if color:
+#                 tags.append(color)
+#             if material:
+#                 tags.append(material)
+#             tags.extend([tag for tag in other_tags if tag])
+
+#             wardrobe_tag = WardrobeTag(
+#                 name=name,
+#                 category=category,
+#                 tags=tags
+#             )
+
+#             # Generate recommendations
+#             recommendations = generate_base_catalogue_recommendation(wardrobe_tag)
+
+#             # Prepare update data
+#             update_data = {
+#                 "base_recommendations": [rec.dict() for rec in recommendations],
+#                 "base_recommendations_created_at": datetime.now()
+#             }
+
+#             # Update the catalogue item
+#             mongodb.catalogue.update_one(
+#                 {"_id": item["_id"]},
+#                 {"$set": update_data}
+#             )
+
+#             processed_count += 1
+#         except Exception as e:
+#             print(f"Error processing item {item['_id']}: {str(e)}")
+#             continue
+
+#     return {"message": f"Successfully processed {processed_count} catalogue items."}
+
+
+# import threading
+
+# MAX_THREADS = 20  # Limit to avoid exceeding API rate limits
+
+# def process_data(items):
+#     """
+#     Process and embed `base_recommendations` inside catalogue items.
+#     Runs in multiple threads for parallel execution.
+#     """
+#     for item in items:
+#         try:
+#             base_recs = item.get("base_recommendations", [])
+#             if not base_recs:
+#                 continue  # Skip items with no recommendations
+
+#             updated_recommendations = []
+#             for recommendation in base_recs:
+#                 clothing_tag = ClothingTag(
+#                     clothing_type=recommendation.get("clothing_type", ""),
+#                     color=recommendation.get("color", ""),
+#                     material=recommendation.get("material", ""),
+#                     other_tags=recommendation.get("other_tags", [])
+#                 )
+
+#                 # Generate embeddings
+#                 embeds = clothing_tag_to_embedding(clothing_tag)
+
+#                 # Store the embeddings directly as fields inside each recommendation object
+#                 recommendation["clothing_type_embed"] = embeds.clothing_type_embed
+#                 recommendation["color_embed"] = embeds.color_embed
+#                 recommendation["material_embed"] = embeds.material_embed
+#                 recommendation["other_tags_embed"] = embeds.other_tags_embed
+#                 updated_recommendations.append(recommendation)
+
+#             # Update MongoDB with modified recommendations
+#             mongodb.catalogue.update_one(
+#                 {"_id": item["_id"]},
+#                 {"$set": {"base_recommendations": updated_recommendations}}
+#             )
+
+#         except Exception as e:
+#             print(f"❌ Error processing item {item['_id']}: {str(e)}")
+
+
+# @router.post("/catalogue/embed-base-recommendations")
+# async def embed_base_recommendations(
+#     force_recompute: bool = Query(False, description="If True, force re-embedding of all items even if embeddings already exist"),
+#     n: Optional[int] = Query(None, description="Number of items to process (default: all)"),
+# ):
+#     """
+#     Finds catalogue items with `base_recommendations` and generates embeddings
+#     for each recommended item, inserting them **directly** as new fields.
+
+#     - Uses Python's `threading` module to run 20 threads for parallel processing.
+#     - If `force_recompute=True`, it ignores existing embeddings and re-embeds everything.
+#     - If `n` is provided, it limits the number of items processed.
+#     """
+
+#     # Query for relevant items
+#     query_filters = {"base_recommendations": {"$exists": True, "$ne": []}}
+
+#     if not force_recompute:
+#         # Only process items missing embeddings inside `base_recommendations`
+#         query_filters["base_recommendations.clothing_type_embed"] = {"$exists": False}
+
+#     items_cursor = mongodb.catalogue.find(query_filters)
+
+#     if n is not None and n > 0:
+#         items_cursor = items_cursor.limit(n)
+
+#     items_to_process = list(items_cursor)  # Convert cursor to list
+#     total_items = len(items_to_process)
+
+#     # If no items to process, return immediately
+#     if total_items == 0:
+#         return {"message": "No items require embedding."}
+
+#     print(f"🔄 Starting embedding for {total_items} items using {MAX_THREADS} threads...")
+
+#     # Create threads for parallel processing
+#     threads = []
+#     chunk_size = total_items // MAX_THREADS  # Split data into chunks
+
+#     for i in range(MAX_THREADS):
+#         start = i * chunk_size
+#         end = (i + 1) * chunk_size if i < MAX_THREADS - 1 else total_items  # Last thread takes remaining items
+#         thread = threading.Thread(target=process_data, args=(items_to_process[start:end],))
+#         threads.append(thread)
+#         thread.start()
+
+#     # Wait for all threads to finish
+#     for thread in threads:
+#         thread.join()
+
+#     print(f"🎉 Finished processing {total_items} items using {MAX_THREADS} threads.")
+#     return {"message": f"Processed {total_items} items with embeddings stored directly as fields inside base_recommendations."}
+
+
+@router.post("/catalogue/update-tags-embeddings/{item_id}")
+def update_tags_for_one_item(item_id: str):
+    """
+    Updates tags & embeddings for a single catalogue item by ID.
+    Pulls all tags from the item’s `other_tags` & `base_recommendations`,
+    and inserts them into `tag_embeddings`.
+    """
+    inserted_count = compile_tags_and_embeddings_for_item(item_id)
+    return {
+        "message": f"Processed item {item_id}. Inserted {inserted_count} new tags into 'tag_embeddings'."
+    }
+
+# @router.post("/catalogue/update-tags-embeddings-all")
+# def update_tags_for_all_items():
+#     """
+#     Updates tags & embeddings for *all* items in the catalogue.
+#     Iterates over every item ID and calls `compile_tags_and_embeddings_for_item`.
+#     """
+#     all_ids = get_all_catalogue_ids()
+#     total_inserted = 0
+#     for cid in all_ids:
+#         inserted_count = compile_tags_and_embeddings_for_item(cid)
+#         total_inserted += inserted_count
+
+#     return {
+#         "message": f"Processed {len(all_ids)} items in catalogue. Inserted {total_inserted} new tags total."
+#     }
+
+
+def store_combined_embedding_for_item(item_id: ObjectId):
+    """
+    Loads an item, computes a 'combined_embed', and updates the doc.
+    
+    Assumes the item already has these fields:
+      - clothing_type_embed
+      - color_embed
+      - material_embed
+      - other_tags_embed
+    """
+    item = mongodb.catalogue.find_one({"_id": item_id})
+    if not item:
+        return
+
+    ctype = item.get("clothing_type_embed", [])
+    color = item.get("color_embed", [])
+    material = item.get("material_embed", [])
+    others = item.get("other_tags_embed", [])
+
+    combined = build_combined_embedding(
+        ctype, color, material, others,
+        w_ctype=1.0,   # Heaviest weight
+        w_color=0.2,
+        w_material=0.2,
+        w_others=0.2
+    )
+
+    mongodb.catalogue.update_one(
+        {"_id": item_id},
+        {"$set": {"combined_embed": combined}}
+    )
+
+# @router.post("/catalogue/update-combined-embeds-all")
+# def update_combined_embeddings_for_all():
+#     """
+#     Iterates over every item in the 'catalogue' collection, 
+#     computes its combined_embed, and updates the item.
+#     Returns how many items were processed.
+#     """
+#     # Optionally apply a filter if you only want to process items that do not yet have combined_embed
+#     # filter_query = {"combined_embed": {"$exists": False}}
+#     filter_query = {}
+
+#     items_cursor = mongodb.catalogue.find(filter_query, {"_id": 1})
+#     count = 0
+#     for doc in items_cursor:
+#         store_combined_embedding_for_item(doc["_id"])
+#         count += 1
+
+#     return {"message": f"Processed {count} items, updated combined_embed on each."}
+
+def build_combined_embedding(
+    clothing_type_embed: List[float],
+    color_embed: List[float],
+    material_embed: List[float],
+    other_tags_embed: List[List[float]],
+    w_ctype: float = 1.0,
+    w_color: float = 0.2,
+    w_material: float = 0.2,
+    w_others: float = 0.2
+) -> List[float]:
+    """
+    Produces a single vector that merges all sub-embeddings using a weighted sum.
+    (All embeddings must be of the same dimension.)
+    """
+    # If any of the first three embeddings are missing, assume a zero vector.
+    # We try to get dimension from one that is non-empty.
+    dim = None
+    for vec in (clothing_type_embed, color_embed, material_embed):
+        if vec:
+            dim = len(vec)
+            break
+    # If still no dimension found but other_tags_embed exists, use its first vector's length.
+    if dim is None and other_tags_embed:
+        dim = len(other_tags_embed[0])
+    if dim is None:
+        # Fallback: cannot determine dimension
+        raise ValueError("No embedding data provided to determine dimension.")
+
+    # If any of the three are empty, replace them with a zero vector of length dim.
+    if not clothing_type_embed:
+        clothing_type_embed = [0.0] * dim
+    if not color_embed:
+        color_embed = [0.0] * dim
+    if not material_embed:
+        material_embed = [0.0] * dim
+
+    # Sum up other_tags vectors.
+    combined_others = [0.0] * dim
+    if other_tags_embed:
+        for vec in other_tags_embed:
+            # Assume each vector is of length dim.
+            for i in range(dim):
+                combined_others[i] += vec[i]
+        for i in range(dim):
+            combined_others[i] *= w_others
+
+    combined = [0.0] * dim
+    for i in range(dim):
+        combined[i] = (clothing_type_embed[i] * w_ctype +
+                       color_embed[i] * w_color +
+                       material_embed[i] * w_material +
+                       combined_others[i])
+    return combined
+
+def build_other_tags_only_embedding(other_tags_embed: List[List[float]], dim: int, w_others: float = 0.2) -> List[float]:
+    """
+    Builds an embedding using only the other_tags vectors.
+    If no vectors are provided, returns a zero vector of length 'dim'.
+    """
+    if not other_tags_embed:
+        return [0.0] * dim
+    combined = [0.0] * dim
+    for vec in other_tags_embed:
+        for i in range(dim):
+            combined[i] += vec[i]
+    for i in range(dim):
+        combined[i] *= w_others
+    return combined
+
+# @router.get("/fast-item-outfit-search")
+# def fast_item_outfit_search(
+#     item_id: str,
+#     current_user: "UserItem" = Depends(get_current_user),  # depends on your auth
+#     top_k: int = 20,
+#     candidate_pool: int = 100
+# ):
+#     """
+#     For the given item, ensure it has base_recommendations.
+#     Then for each base recommendation, build a combined query embedding
+#     with heavier weight on clothing type. Use MongoDB vector search on
+#     'combined_embed', letting the server do all scoring via $meta:"vectorSearchScore".
+#     Return top_k results per base recommendation.
+#     """
+
+#     # 1) Validate item_id
+#     try:
+#         object_id = ObjectId(item_id)
+#     except:
+#         raise HTTPException(status_code=400, detail="Invalid item ID")
+
+#     # 2) Fetch the main item
+#     item = mongodb.catalogue.find_one({"_id": object_id})
+#     if not item:
+#         raise HTTPException(status_code=404, detail="Item not found")
+
+#     # 3) Ensure base_recommendations exist (generate if missing)
+#     if "base_recommendations" not in item or not item["base_recommendations"]:
+#         from services.openai import WardrobeTag, generate_base_catalogue_recommendation, clothing_tag_to_embedding
+
+#         # Example logic: gather data and build a WardrobeTag
+#         clothing_type = item.get("clothing_type", "")
+#         color = item.get("color", "")
+#         material = item.get("material", "")
+#         tags = item.get("other_tags", [])
+
+#         wtag = WardrobeTag(
+#             name=item.get("name", ""),
+#             category=item.get("category", ""),
+#             tags=[clothing_type, color, material, *tags]
+#         )
+
+#         # Generate recommended items
+#         base_recs = generate_base_catalogue_recommendation(wtag)
+
+#         # Convert them to embed
+#         updated_recs = []
+#         for rec in base_recs:
+#             embeds = clothing_tag_to_embedding(rec)
+#             rec_dict = rec.dict()
+#             rec_dict.update({
+#                 "clothing_type_embed": embeds.clothing_type_embed,
+#                 "color_embed": embeds.color_embed,
+#                 "material_embed": embeds.material_embed,
+#                 "other_tags_embed": embeds.other_tags_embed
+#             })
+#             updated_recs.append(rec_dict)
+
+#         mongodb.catalogue.update_one(
+#             {"_id": object_id},
+#             {"$set": {"base_recommendations": updated_recs}}
+#         )
+#         item["base_recommendations"] = updated_recs
+
+#     base_recommendations = item["base_recommendations"]
+#     results = []
+
+#     # 4) For each base recommendation, build a combined "query embedding," run one $vectorSearch
+#     for rec in base_recommendations:
+#         needed_fields = ["clothing_type_embed", "color_embed", "material_embed", "other_tags_embed"]
+#         if not all(k in rec for k in needed_fields):
+#             continue  # skip if missing embeddings
+
+#         # Build the query vector
+#         query_vector = build_combined_embedding(
+#             clothing_type_embed=rec["clothing_type_embed"],
+#             color_embed=rec["color_embed"],
+#             material_embed=rec["material_embed"],
+#             other_tags_embed=rec["other_tags_embed"],
+#             w_ctype=1.0,
+#             w_color=0.2,
+#             w_material=0.2,
+#             w_others=0.2
+#         )
+
+#         # Vector search pipeline
+#         pipeline = [
+#             {
+#                 "$vectorSearch": {
+#                     "index": "combined_embed_index",     # name of your vector index
+#                     "path": "combined_embed",            # field in the DB
+#                     "queryVector": query_vector,
+#                     "limit": candidate_pool,
+#                     "numCandidates": candidate_pool * 10
+#                 }
+#             },
+#             {
+#                 "$match": {
+#                     # Exclude the current item
+#                     "_id": {"$ne": object_id}
+#                 }
+#             },
+#             {
+#                 "$project": {
+#                     "_id": 1,
+#                     "name": 1,
+#                     "category": 1,
+#                     "price": 1,
+#                     "image_url": 1,
+#                     "product_url": 1,
+#                     "clothing_type": 1,
+#                     "color": 1,
+#                     "material": 1,
+#                     "other_tags": 1,
+#                     "score": {"$meta": "vectorSearchScore"}  # built-in similarity
+#                 }
+#             },
+#             {
+#                 "$sort": {"score": -1}
+#             },
+#             {
+#                 "$limit": top_k
+#             }
+#         ]
+
+#         # 4C) Run the pipeline
+#         cursor = mongodb.catalogue.aggregate(pipeline)
+#         top_items = list(cursor)
+
+#         # 4D) Attach to result
+#         results.append({
+#             "base_recommendation": {
+#                 "clothing_type": rec.get("clothing_type", ""),
+#                 "color": rec.get("color", ""),
+#                 "material": rec.get("material", ""),
+#                 "other_tags": rec.get("other_tags", []),
+#             },
+#             "top_items": [
+#                 {
+#                     "id": str(doc["_id"]),
+#                     "name": doc.get("name", ""),
+#                     "category": doc.get("category", ""),
+#                     "price": doc.get("price", ""),
+#                     "image_url": doc.get("image_url", ""),
+#                     "product_url": doc.get("product_url", ""),
+#                     "clothing_type": doc.get("clothing_type", ""),
+#                     "color": doc.get("color", ""),
+#                     "material": doc.get("material", ""),
+#                     "other_tags": doc.get("other_tags", []),
+#                     "score": doc["score"]
+#                 }
+#                 for doc in top_items
+#             ]
+#         })
+
+#     return {
+#         "item_id": item_id,
+#         "name": item.get("name", ""),
+#         "base_recommendations": results
+#     }
+
+# --- Route: fast-item-outfit-search-with-style ---
+
+@router.get("/fast-item-outfit-search-with-style")
+def fast_item_outfit_search_with_style(
+    item_id: str,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 20,
+    candidate_pool: int = 100
+):
+    """
+    Similar to /fast-item-outfit-search but now incorporates each of the user's
+    style_recommendations. For each style, we ignore (do not add) the style’s 
+    clothing_type, color, and material embeddings—instead, we only add the 
+    style's other_tags_embed to the base recommendation's combined embed.
+    The response is grouped by style.
+    """
+
+    def merge_vectors(vecA: List[float], vecB: List[float]) -> List[float]:
+        """Element-wise sum of two vectors of equal length."""
+        if len(vecA) != len(vecB):
+            # In a production system, you might handle this more gracefully.
+            raise ValueError("Vector dimensions do not match")
+        return [a + b for a, b in zip(vecA, vecB)]
+
+    # 1) Validate item_id
+    try:
+        object_id = ObjectId(item_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid item ID format")
+
+    # 2) Fetch the main item
+    item = mongodb.catalogue.find_one({"_id": object_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    category = item.get("category", "")
+    # 3) Ensure base_recommendations exist (generate if missing)
+    if "base_recommendations" not in item or not item["base_recommendations"]:
+        from services.openai import WardrobeTag, generate_base_catalogue_recommendation, clothing_tag_to_embedding
+
+        clothing_type = item.get("clothing_type", "")
+        color = item.get("color", "")
+        material = item.get("material", "")
+        tags = item.get("other_tags", [])
+
+        wtag = WardrobeTag(
+            name=item.get("name", ""),
+            category=item.get("category", ""),
+            tags=[clothing_type, color, material, *tags]
+        )
+
+        base_recs = generate_base_catalogue_recommendation(wtag)
+        updated_recs = []
+        for rec in base_recs:
+            embeds = clothing_tag_to_embedding(rec)
+            rec_dict = rec.dict()
+            rec_dict.update({
+                "clothing_type_embed": embeds.clothing_type_embed,
+                "color_embed": embeds.color_embed,
+                "material_embed": embeds.material_embed,
+                "other_tags_embed": embeds.other_tags_embed
+            })
+            updated_recs.append(rec_dict)
+
+        mongodb.catalogue.update_one(
+            {"_id": object_id},
+            {"$set": {"base_recommendations": updated_recs}}
+        )
+        item["base_recommendations"] = updated_recs
+
+    # 4) Build a combined embed for each base recommendation
+    base_recommendations = item["base_recommendations"]
+    base_recs_with_combined = []
+    for rec in base_recommendations:
+        required = ["clothing_type_embed", "color_embed", "material_embed", "other_tags_embed"]
+        if not all(k in rec for k in required):
+            continue
+
+        base_combined = build_combined_embedding(
+            clothing_type_embed=rec["clothing_type_embed"],
+            color_embed=rec["color_embed"],
+            material_embed=rec["material_embed"],
+            other_tags_embed=rec["other_tags_embed"],
+            w_ctype=1.1,
+            w_color=0.2,
+            w_material=0.2,
+            w_others=0.2
+        )
+        base_recs_with_combined.append({
+            "base_recommendation": {
+                "clothing_type": rec.get("clothing_type", ""),
+                "color": rec.get("color", ""),
+                "material": rec.get("material", ""),
+                "other_tags": rec.get("other_tags", []),
+            },
+            "base_combined_embed": base_combined
+        })
+
+    if not base_recs_with_combined:
+        raise HTTPException(status_code=500, detail="No valid base recommendation embeddings found.")
+
+    # Determine default dimension from the first base recommendation's combined embed
+    default_dim = len(base_recs_with_combined[0]["base_combined_embed"])
+
+    # 5) Fetch user's style_recommendations
+    user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found.")
+    style_recs = user_doc.get("style_recommendations", [])
+    if not style_recs:
+        raise HTTPException(status_code=400, detail="No style_recommendations found for this user.")
+
+    # 6) For each style, build a "style-only" embed from only other_tags_embed
+    styles_output = []
+    for style_rec in style_recs:
+        style_name = style_rec.get("style_name", "Unknown Style")
+        embed_dict = style_rec.get("tag_embed", {})
+        # We now ignore clothing_type_embed, color_embed, and material_embed from the style.
+        other_tags_embed = embed_dict.get("other_tags_embed", [])
+        if not other_tags_embed:
+            # If nothing available, use a zero vector of the default dimension.
+            style_only_embed = [0.0] * default_dim
+        else:
+            style_only_embed = build_other_tags_only_embedding(other_tags_embed, default_dim, w_others=0.4) # weight of style embedding
+
+        # 7) For each base recommendation, merge the base combined embed with the style-only embed,
+        # then run a vector search.
+        style_outfits = []
+        for base_obj in base_recs_with_combined:
+            base_embed = base_obj["base_combined_embed"]
+            merged_embed = merge_vectors(base_embed, style_only_embed)
+
+            pipeline = [
+                {
+                    "$vectorSearch": {
+                        "index": "combined_embed_index",
+                        "path": "combined_embed",
+                        "queryVector": merged_embed,
+                        "filter": {"category": {"$ne": category}},  # Exclude items with the same category
+                        "limit": candidate_pool,
+                        "numCandidates": candidate_pool * 10
+                    }
+                },
+                {"$match": {"_id": {"$ne": ObjectId(item_id)}}},
+                {
+                    "$project": {
+                        "_id": 1,
+                        "name": 1,
+                        "category": 1,
+                        "price": 1,
+                        "image_url": 1,
+                        "product_url": 1,
+                        "clothing_type": 1,
+                        "color": 1,
+                        "material": 1,
+                        "other_tags": 1,
+                        "score": {"$meta": "vectorSearchScore"}
+                    }
+                },
+                {"$sort": {"score": -1}},
+                {"$limit": top_k}
+            ]
+
+            cursor = mongodb.catalogue.aggregate(pipeline)
+            top_items = list(cursor)
+
+            style_outfits.append({
+                "base_recommendation": base_obj["base_recommendation"],
+                "top_items": [
+                    {
+                        "id": str(doc["_id"]),
+                        "name": doc.get("name", ""),
+                        "category": doc.get("category", ""),
+                        "price": doc.get("price", ""),
+                        "image_url": doc.get("image_url", ""),
+                        "product_url": doc.get("product_url", ""),
+                        "clothing_type": doc.get("clothing_type", ""),
+                        "color": doc.get("color", ""),
+                        "material": doc.get("material", ""),
+                        "other_tags": doc.get("other_tags", []),
+                        "score": doc["score"]
+                    }
+                    for doc in top_items
+                ]
+            })
+
+        styles_output.append({
+            "style_name": style_name,
+            "style_outfits": style_outfits
+        })
+
+    return {
+        "item_id": item_id,
+        "name": item.get("name", ""),
+        "styles": styles_output
+    }

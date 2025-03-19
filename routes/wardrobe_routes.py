@@ -238,3 +238,55 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+@router.post("/wardrobe/regenerate_tags")
+async def regenerate_wardrobe_tags(current_user: UserItem = Depends(get_current_user), all_users: bool = False):
+    """
+    This endpoint regenerates wardrobe tags for all existing wardrobe items.
+    If `all_users` is set to True, it regenerates tags for all users.
+    Skips items that fail and resumes from where it broke.
+    """
+    if all_users:
+        users = mongodb.users.find({}, {"_id": 1})
+        user_ids = [user["_id"] for user in users]
+    else:
+        user_ids = [current_user['_id']]
+    
+    updated_items = []
+    failed_items = []
+    
+    for user_id in user_ids:
+        items = mongodb.wardrobe.find({"user_id": user_id})
+        
+        for item in items:
+            try:
+                image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
+                new_tags = generate_wardrobe_tags(image_url)
+                
+                update_query = {
+                    "$set": {
+                        "name": new_tags['name'],
+                        "category": new_tags['category'],
+                        "tags": new_tags['tags']
+                    }
+                }
+                
+                mongodb.wardrobe.update_one({"_id": item["_id"]}, update_query)
+                updated_items.append({
+                    "_id": str(item["_id"]),
+                    "user_id": str(user_id),
+                    "name": new_tags['name'],
+                    "category": new_tags['category'],
+                    "tags": new_tags['tags']
+                })
+            except Exception as e:
+                failed_items.append({
+                    "_id": str(item["_id"]),
+                    "user_id": str(user_id),
+                    "error": str(e)
+                })
+    
+    return {
+        "message": "Wardrobe tags regeneration completed with some skips.",
+        "updated_items": updated_items,
+        "failed_items": failed_items
+    }
