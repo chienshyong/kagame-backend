@@ -20,8 +20,8 @@ class UserProfile(BaseModel):
     skin_tone: Optional[str] = None
     style: Optional[str] = None
     happiness_current_wardrobe: Optional[str] = None
-    clothing_likes: Optional[OrderedDict[str, bool]] = None
-    clothing_dislikes: Optional[OrderedDict[str, Union[bool, List[List[str]]]]] = None
+    clothing_likes: Optional[OrderedDict[str, bool]] = {}
+    clothing_dislikes: Optional[OrderedDict[str, Union[bool, List[List[str]]]]] = {}
 
 class Preferences(BaseModel):
     clothing_likes: Optional[OrderedDict[str, bool]] = None
