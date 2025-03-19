@@ -9,7 +9,6 @@ from services.openai import (
     ClothingTagEmbed,
     user_style_to_embedding,
     StyleAnalysisResponse,
-    get_n_closest_with_filter,
     compile_tags_and_embeddings_for_item,
     get_all_catalogue_ids,
     WardrobeTag, 
@@ -534,7 +533,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
             # Then get embedding
             embedding = clothing_tag_to_embedding(new_tag)
             # Use category-based filter
-            recs = list(get_n_closest_with_filter(embedding, rec_input.category, 1))
+            recs = list(get_n_closest(embedding, rec_input.category, 1))
             if recs:
                 best = recs[0]
                 match_item = CatalogItem(id=str(best["_id"]))
