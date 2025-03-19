@@ -182,19 +182,35 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
     profile = await get_userdefined_profile(current_user)
 
     wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
-    clothing_tags = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
+    clothing_recommendations = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
+
+    gender = profile['gender']
 
     result = []
-    for clothing_tag_embedded in map(clothing_tag_to_embedding, clothing_tags):
-        rec = list(get_n_closest(clothing_tag_embedded, 1))[0]
-        rec['_id'] = str(rec['_id'])
-        result.append(rec)
+    # for clothing_tag_embedded in map(clothing_tag_to_embedding, clothing_tags):
+    #     rec = list(get_n_closest(clothing_tag_embedded, 1, gender_requirements=[gender,"U"]))[0]
+    #     rec['_id'] = str(rec['_id'])
+    #     result.append(rec)
+
+    for clothing_tag, category in clothing_recommendations:  # Unpack tuple (ClothingTag, category)
+        clothing_tag_embedded = clothing_tag_to_embedding(clothing_tag)  # Pass only ClothingTag
+
+        # Retrieve the closest matching clothing item
+        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"]))[0]
+        rec['_id'] = str(rec['_id'])  # Ensure _id is a string
+
+        result.append(rec)  # Append the final result
 
     return result
 
 @router.get("/wardrobe/userdefined_profile")
 async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
     profile = current_user["userdefined_profile"]
+
+    if profile['gender'] == "Male":
+        profile['gender'] = "M"
+    else:
+        profile['gender'] = "F"
 
     if profile['clothing_likes'] != None:
         #just keeping the latest 5 entries and keeping the datatype as list

@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Tuple
 from openai import OpenAI
 from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 from services.mongodb import catalogue, tag_embeddings
@@ -333,7 +333,7 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
 
-def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None):
+def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None, gender_requirements: List[Literal['M', 'F', 'U']] = None):
     # If category_requirement is empty, don't use filters. Otherwise, clothing must be of the specified type.
     # Random bucketing disabled for now.
 
@@ -442,15 +442,18 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Opt
             }
         }
     ]
+    temp_dict = {}
     if category_requirement is not None:
-        pipeline[0]['$vectorSearch']['filter'] = {
-            'category': category_requirement
-        }
+        temp_dict['category'] = category_requirement
+    if gender_requirements is not None:
+        temp_dict['gender'] = {'$in': gender_requirements}
+        
+    if len(temp_dict) > 0:
+        pipeline[0]['$vectorSearch']['filter'] = temp_dict
 
     return catalogue.aggregate(pipeline)
 
 # Define the StyleSuggestion and StyleAnalysisResponse models
-
 
 class StyleSuggestion(BaseModel):
     style: str
@@ -493,7 +496,7 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
                 "content": [
                     {
                         "type": "text",
-                        "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material)\n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
+                        "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material), category ("Tops", "Bottoms", "Shoes", "Dresses") \n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
                     User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['skin_tone']} skin, {profile['style']} style.
                     Likes: {profile['clothing_likes']}.
                     Likes: {profile['clothing_likes']}.
@@ -514,59 +517,64 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
         response_format={
             "type": "json_object"
         },
-        tools=[
+          tools=[
             {
-                "type": "function",
-                "function": {
-                    "name": "recommend_clothing",
-                    "strict": True,
-                    "parameters": {
+            "type": "function",
+            "function": {
+                "name": "recommend_clothing",
+                "description": "Generates clothing recommendations based on user preferences",
+                "parameters": {
+                "type": "object",
+                "required": [
+                    "recommendations"
+                ],
+                "properties": {
+                    "recommendations": {
+                    "type": "array",
+                    "items": {
                         "type": "object",
                         "required": [
-                            "recommendations"
+                        "clothing_type",
+                        "color",
+                        "material",
+                        "other_tags",
+                        "category"
                         ],
                         "properties": {
-                            "recommendations": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "required": [
-                                        "clothing_type",
-                                        "color",
-                                        "material",
-                                        "other_tags"
-                                    ],
-                                    "properties": {
-                                        "color": {
-                                            "type": "string",
-                                            "description": "Color of the clothing item"
-                                        },
-                                        "material": {
-                                            "type": "string",
-                                            "description": "Material of the clothing item"
-                                        },
-                                        "other_tags": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string",
-                                                "description": "Additional tags related to clothing characteristics"
-                                            },
-                                            "description": "Additional tags describing the clothing"
-                                        },
-                                        "clothing_type": {
-                                            "type": "string",
-                                            "description": "Type of clothing item"
-                                        }
-                                    },
-                                    "additionalProperties": False
-                                },
-                                "description": "Array of clothing recommendations"
-                            }
+                        "color": {
+                            "type": "string",
+                            "description": "Color of the clothing item"
+                        },
+                        "material": {
+                            "type": "string",
+                            "description": "Material of the clothing item"
+                        },
+                        "other_tags": {
+                            "type": "array",
+                            "items": {
+                            "type": "string",
+                            "description": "Additional tags related to clothing characteristics"
+                            },
+                            "description": "Additional tags describing the clothing"
+                        },
+                        "clothing_type": {
+                            "type": "string",
+                            "description": "Type of clothing item"
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "Category of the clothing item. Can be [Tops, Bottoms, Shoes, Dresses]"
+                        }
                         },
                         "additionalProperties": False
                     },
-                    "description": "Generates clothing recommendations based on user preferences"
-                }
+                    "description": "Array of clothing recommendations"
+                    }
+                },
+                "additionalProperties": False
+                },
+                "strict": True
+            }
             }
         ],
         tool_choice={"type": "function", "function": {"name": "recommend_clothing"}},
@@ -577,14 +585,18 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
         presence_penalty=0
     )
 
-    clothing_tags: list[ClothingTag] = []
+    clothing_recommendations: List[Tuple[ClothingTag, str]] = []
 
     for tool_call_str in openai_output.choices[0].message.tool_calls:
         tool_call_json = json.loads(tool_call_str.function.arguments)
-        for clothing_tag in tool_call_json["recommendations"]:
-            clothing_tags.append(ClothingTag(**clothing_tag))
-
-    return clothing_tags
+        for clothing_item in tool_call_json["recommendations"]:
+            category = clothing_item["category"]  # Extract category
+            clothing_data = {key: value for key, value in clothing_item.items() if key != "category"}  # Exclude category
+            
+            clothing_tag = ClothingTag(**clothing_data)  # Create ClothingTag object
+            clothing_recommendations.append((clothing_tag, category))  # Store as tuple
+    print(clothing_recommendations)
+    return clothing_recommendations
 
 
 def get_n_closest_with_filter(tag_embed: ClothingTagEmbed, category: str, n: int):
