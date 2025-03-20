@@ -951,169 +951,6 @@ def build_other_tags_only_embedding(other_tags_embed: List[List[float]], dim: in
         combined[i] *= w_others
     return combined
 
-# @router.get("/fast-item-outfit-search")
-# def fast_item_outfit_search(
-#     item_id: str,
-#     current_user: "UserItem" = Depends(get_current_user),  # depends on your auth
-#     top_k: int = 20,
-#     candidate_pool: int = 100
-# ):
-#     """
-#     For the given item, ensure it has base_recommendations.
-#     Then for each base recommendation, build a combined query embedding
-#     with heavier weight on clothing type. Use MongoDB vector search on
-#     'combined_embed', letting the server do all scoring via $meta:"vectorSearchScore".
-#     Return top_k results per base recommendation.
-#     """
-
-#     # 1) Validate item_id
-#     try:
-#         object_id = ObjectId(item_id)
-#     except:
-#         raise HTTPException(status_code=400, detail="Invalid item ID")
-
-#     # 2) Fetch the main item
-#     item = mongodb.catalogue.find_one({"_id": object_id})
-#     if not item:
-#         raise HTTPException(status_code=404, detail="Item not found")
-
-#     # 3) Ensure base_recommendations exist (generate if missing)
-#     if "base_recommendations" not in item or not item["base_recommendations"]:
-#         from services.openai import WardrobeTag, generate_base_catalogue_recommendation, clothing_tag_to_embedding
-
-#         # Example logic: gather data and build a WardrobeTag
-#         clothing_type = item.get("clothing_type", "")
-#         color = item.get("color", "")
-#         material = item.get("material", "")
-#         tags = item.get("other_tags", [])
-
-#         wtag = WardrobeTag(
-#             name=item.get("name", ""),
-#             category=item.get("category", ""),
-#             tags=[clothing_type, color, material, *tags]
-#         )
-
-#         # Generate recommended items
-#         base_recs = generate_base_catalogue_recommendation(wtag)
-
-#         # Convert them to embed
-#         updated_recs = []
-#         for rec in base_recs:
-#             embeds = clothing_tag_to_embedding(rec)
-#             rec_dict = rec.dict()
-#             rec_dict.update({
-#                 "clothing_type_embed": embeds.clothing_type_embed,
-#                 "color_embed": embeds.color_embed,
-#                 "material_embed": embeds.material_embed,
-#                 "other_tags_embed": embeds.other_tags_embed
-#             })
-#             updated_recs.append(rec_dict)
-
-#         mongodb.catalogue.update_one(
-#             {"_id": object_id},
-#             {"$set": {"base_recommendations": updated_recs}}
-#         )
-#         item["base_recommendations"] = updated_recs
-
-#     base_recommendations = item["base_recommendations"]
-#     results = []
-
-#     # 4) For each base recommendation, build a combined "query embedding," run one $vectorSearch
-#     for rec in base_recommendations:
-#         needed_fields = ["clothing_type_embed", "color_embed", "material_embed", "other_tags_embed"]
-#         if not all(k in rec for k in needed_fields):
-#             continue  # skip if missing embeddings
-
-#         # Build the query vector
-#         query_vector = build_combined_embedding(
-#             clothing_type_embed=rec["clothing_type_embed"],
-#             color_embed=rec["color_embed"],
-#             material_embed=rec["material_embed"],
-#             other_tags_embed=rec["other_tags_embed"],
-#             w_ctype=1.0,
-#             w_color=0.2,
-#             w_material=0.2,
-#             w_others=0.2
-#         )
-
-#         # Vector search pipeline
-#         pipeline = [
-#             {
-#                 "$vectorSearch": {
-#                     "index": "combined_embed_index",     # name of your vector index
-#                     "path": "combined_embed",            # field in the DB
-#                     "queryVector": query_vector,
-#                     "limit": candidate_pool,
-#                     "numCandidates": candidate_pool * 10
-#                 }
-#             },
-#             {
-#                 "$match": {
-#                     # Exclude the current item
-#                     "_id": {"$ne": object_id}
-#                 }
-#             },
-#             {
-#                 "$project": {
-#                     "_id": 1,
-#                     "name": 1,
-#                     "category": 1,
-#                     "price": 1,
-#                     "image_url": 1,
-#                     "product_url": 1,
-#                     "clothing_type": 1,
-#                     "color": 1,
-#                     "material": 1,
-#                     "other_tags": 1,
-#                     "score": {"$meta": "vectorSearchScore"}  # built-in similarity
-#                 }
-#             },
-#             {
-#                 "$sort": {"score": -1}
-#             },
-#             {
-#                 "$limit": top_k
-#             }
-#         ]
-
-#         # 4C) Run the pipeline
-#         cursor = mongodb.catalogue.aggregate(pipeline)
-#         top_items = list(cursor)
-
-#         # 4D) Attach to result
-#         results.append({
-#             "base_recommendation": {
-#                 "clothing_type": rec.get("clothing_type", ""),
-#                 "color": rec.get("color", ""),
-#                 "material": rec.get("material", ""),
-#                 "other_tags": rec.get("other_tags", []),
-#             },
-#             "top_items": [
-#                 {
-#                     "id": str(doc["_id"]),
-#                     "name": doc.get("name", ""),
-#                     "category": doc.get("category", ""),
-#                     "price": doc.get("price", ""),
-#                     "image_url": doc.get("image_url", ""),
-#                     "product_url": doc.get("product_url", ""),
-#                     "clothing_type": doc.get("clothing_type", ""),
-#                     "color": doc.get("color", ""),
-#                     "material": doc.get("material", ""),
-#                     "other_tags": doc.get("other_tags", []),
-#                     "score": doc["score"]
-#                 }
-#                 for doc in top_items
-#             ]
-#         })
-
-#     return {
-#         "item_id": item_id,
-#         "name": item.get("name", ""),
-#         "base_recommendations": results
-#     }
-
-# --- Route: fast-item-outfit-search-with-style ---
-
 @router.get("/fast-item-outfit-search-with-style")
 def fast_item_outfit_search_with_style(
     item_id: str,
@@ -1149,8 +986,6 @@ def fast_item_outfit_search_with_style(
     category = item.get("category", "")
     # 3) Ensure base_recommendations exist (generate if missing)
     if "base_recommendations" not in item or not item["base_recommendations"]:
-        from services.openai import WardrobeTag, generate_base_catalogue_recommendation, clothing_tag_to_embedding
-
         clothing_type = item.get("clothing_type", "")
         color = item.get("color", "")
         material = item.get("material", "")
@@ -1267,7 +1102,8 @@ def fast_item_outfit_search_with_style(
                         "color": 1,
                         "material": 1,
                         "other_tags": 1,
-                        "score": {"$meta": "vectorSearchScore"}
+                        "score": {"$meta": "vectorSearchScore"},
+                        "cropped_image_url": 1
                     }
                 },
                 {"$sort": {"score": -1}},
@@ -1291,10 +1127,131 @@ def fast_item_outfit_search_with_style(
                         "color": doc.get("color", ""),
                         "material": doc.get("material", ""),
                         "other_tags": doc.get("other_tags", []),
-                        "score": doc["score"]
+                        "score": doc["score"],
+                        "cropped_image_url": doc.get("cropped_image_url", ""),
                     }
                     for doc in top_items
                 ]
+            })
+
+        styles_output.append({
+            "style_name": style_name,
+            "style_outfits": style_outfits
+        })
+
+    return {
+        "item_id": item_id,
+        "name": item.get("name", ""),
+        "styles": styles_output
+    }
+
+@router.get("/fast-item-outfit-search-with-style-using-get-n-closest")
+def fast_item_outfit_search_with_style_using_get_n_closest(
+    item_id: str,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 6,
+):
+    # 1) Validate item_id
+    try:
+        object_id = ObjectId(item_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid item ID format")
+
+    # 2) Fetch the main item
+    item = mongodb.catalogue.find_one({"_id": object_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    category = item.get("category", "")
+    
+    # 3) Ensure base_recommendations exist (same as original implementation)
+    if "base_recommendations" not in item or not item["base_recommendations"]:
+        clothing_type = item.get("clothing_type", "")
+        color = item.get("color", "")
+        material = item.get("material", "")
+        tags = item.get("other_tags", [])
+
+        wtag = WardrobeTag(
+            name=item.get("name", ""),
+            category=item.get("category", ""),
+            tags=[clothing_type, color, material, *tags]
+        )
+
+        base_recs = generate_base_catalogue_recommendation(wtag)
+        updated_recs = []
+        for rec in base_recs:
+            embeds = clothing_tag_to_embedding(rec)
+            rec_dict = rec.dict()
+            rec_dict.update({
+                "clothing_type_embed": embeds.clothing_type_embed,
+                "color_embed": embeds.color_embed,
+                "material_embed": embeds.material_embed,
+                "other_tags_embed": embeds.other_tags_embed
+            })
+            updated_recs.append(rec_dict)
+
+        mongodb.catalogue.update_one(
+            {"_id": object_id},
+            {"$set": {"base_recommendations": updated_recs}}
+        )
+        item["base_recommendations"] = updated_recs
+
+    # 4) Fetch user's style recommendations
+    user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found.")
+    style_recs = user_doc.get("style_recommendations", [])
+    if not style_recs:
+        raise HTTPException(status_code=400, detail="No style_recommendations found for this user.")
+
+    # 5) Process styles and base recommendations
+    styles_output = []
+    for style_rec in style_recs:
+        style_name = style_rec.get("style_name", "Unknown Style")
+        style_tags = style_rec.get("tag_embed", {}).get("other_tags", [])
+        
+        style_outfits = []
+        for base_rec in item["base_recommendations"]:
+            # Create combined clothing tag
+            combined_tag = ClothingTag(
+                clothing_type=base_rec.get("clothing_type", ""),
+                color=base_rec.get("color", ""),
+                material=base_rec.get("material", ""),
+                other_tags=base_rec.get("other_tags", []) + style_tags
+            )
+            
+            # Get embedding for the combined tag
+            tag_embed = clothing_tag_to_embedding(combined_tag)
+            
+            # Get closest items using the new method
+            closest_items = get_n_closest(
+                tag_embed=tag_embed,
+                n=top_k,
+                category_requirement=category,  # Category to exclude
+                exclude_category=True,  # New flag for exclusion
+                gender_requirements=["M", "F", "U"]
+            )
+            
+            style_outfits.append({
+                "base_recommendation": {
+                    "clothing_type": base_rec.get("clothing_type", ""),
+                    "color": base_rec.get("color", ""),
+                    "material": base_rec.get("material", ""),
+                    "other_tags": base_rec.get("other_tags", []),
+                },
+                "top_items": [{
+                    "id": str(doc["_id"]),
+                    "name": doc.get("name", ""),
+                    "category": doc.get("category", ""),
+                    "price": doc.get("price", ""),
+                    "image_url": doc.get("image_url", ""),
+                    "product_url": doc.get("product_url", ""),
+                    "clothing_type": doc.get("clothing_type", ""),
+                    "color": doc.get("color", ""),
+                    "material": doc.get("material", ""),
+                    "other_tags": doc.get("other_tags", []),
+                    "score": doc.get("other_tag_match_count", 0),
+                    "cropped_image_url": doc.get("cropped_image_url", ""),
+                } for doc in closest_items]
             })
 
         styles_output.append({

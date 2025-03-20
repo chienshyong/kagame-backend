@@ -334,8 +334,13 @@ def clothing_tag_to_embedding(tag: ClothingTag) -> ClothingTagEmbed:
     return ClothingTagEmbed(clothing_type_embed=clothing_type_embed, color_embed=color_embed, material_embed=material_embed, other_tags_embed=other_tags_embed)
 
 
-def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None, gender_requirements: List[Literal['M', 'F', 'U']] = None):
-    # If category_requirement is empty, don't use filters. Otherwise, clothing must be of the specified type.
+def get_n_closest(
+    tag_embed: ClothingTagEmbed, 
+    n: int, 
+    category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None,
+    gender_requirements: List[Literal['M', 'F', 'U']] = None,
+    exclude_category: bool = False  # If True, filter excludes specified item from being returned in results
+):    # If category_requirement is empty, don't use filters. Otherwise, clothing must be of the specified type.
     # Random bucketing disabled for now.
 
     # LIMITATIONS: other_tag matching is not by percentage of match, but by raw number of matches. This means catalogue objects with more "other_tags" will have a higher likelihood to score more.
@@ -444,8 +449,13 @@ def get_n_closest(tag_embed: ClothingTagEmbed, n: int, category_requirement: Opt
         }
     ]
     temp_dict = {}
+    # Modified category filtering logic
     if category_requirement is not None:
-        temp_dict['category'] = category_requirement
+        if exclude_category:
+            temp_dict['category'] = {'$ne': category_requirement}
+        else:
+            temp_dict['category'] = category_requirement
+            
     if gender_requirements is not None:
         temp_dict['gender'] = {'$in': gender_requirements}
         
