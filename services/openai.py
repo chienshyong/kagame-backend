@@ -444,7 +444,8 @@ def get_n_closest(
                 'product_url': 1,
                 'retailer': 1,
                 'gender': 1,
-                'other_tag_match_count': 1
+                'other_tag_match_count': 1,
+                'cropped_image_url': 1,
             }
         }
     ]
