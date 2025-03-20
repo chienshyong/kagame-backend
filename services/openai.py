@@ -466,21 +466,6 @@ class StyleAnalysisResponse(BaseModel):
     top_styles: List[StyleSuggestion]
 
 
-def user_style_to_embedding(user_style: StyleAnalysisResponse) -> list[float]:
-    # Combine the styles and descriptions into a single text
-    style_texts = []
-    for style_suggestion in user_style.top_styles:
-        style_texts.append(f"{style_suggestion.style}: {style_suggestion.description}")
-    combined_style_text = " ".join(style_texts)
-
-    # Get the embedding
-    embedding_response = openai_client.embeddings.create(
-        input=combined_style_text, model="text-embedding-3-large"
-    )
-    embedding = embedding_response.data[0].embedding
-    return embedding
-
-
 def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prompt: str = "") -> list[ClothingTag]:
     # added user persona 23/02
 

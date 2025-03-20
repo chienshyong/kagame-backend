@@ -7,7 +7,6 @@ from services.openai import (
     clothing_tag_to_embedding,
     get_n_closest,
     ClothingTagEmbed,
-    user_style_to_embedding,
     StyleAnalysisResponse,
     compile_tags_and_embeddings_for_item,
     get_all_catalogue_ids,
@@ -176,155 +175,210 @@ class User(BaseModel):
     password: str
     user_style: Optional[StyleAnalysisResponse] = None
 
+# --------------------------
+# Response Models
+# --------------------------
+class StyleSuggestion(BaseModel):
+    style: str
+    description: str
+    reasoning: str
+
+class StyleAnalysisResponse(BaseModel):
+    top_styles: List[StyleSuggestion]
+
+class User(BaseModel):
+    username: str
+    password: str
+    user_style: Optional[StyleAnalysisResponse] = None
+
+
+# ----------------------------------------------------------------------------
+# HELPER FUNCTION to run style analysis (calls OpenAI) without using a route
+# ----------------------------------------------------------------------------
+def run_style_analysis_logic(user_id: ObjectId) -> StyleAnalysisResponse:
+    """
+    Gathers the user's wardrobe items from MongoDB, calls OpenAI to analyze,
+    and returns the resulting StyleAnalysisResponse (top 3 styles).
+    """
+    # 1) Gather the user's wardrobe items
+    wardrobe_items = []
+    items_cursor = mongodb.wardrobe.find({"user_id": user_id})
+    for item in items_cursor:
+        wardrobe_items.append({
+            "name": item["name"],
+            "category": item["category"],
+            "tags": item["tags"]
+        })
+
+    if not wardrobe_items:
+        raise HTTPException(status_code=400, detail="No wardrobe items found for the user.")
+
+    # 2) Prepare the prompt/messages for OpenAI
+    wardrobe_items_json = json.dumps(wardrobe_items)
+    prompt = (
+        "Based on my wardrobe items, suggest the top 3 styles that fit me, "
+        "along with descriptions and reasoning. The output should be a JSON "
+        "object matching the following schema:\n"
+        "{\n"
+        '  "top_styles": [\n'
+        "    {\n"
+        '      "style": "string",\n'
+        '      "description": "string",\n'
+        '      "reasoning": "string"\n'
+        "    },\n"
+        "    ... (2 more styles)\n"
+        "  ]\n"
+        "}"
+    )
+    messages = [
+        {"role": "system", "content": "You are a fashion expert assistant."},
+        {"role": "user", "content": f"{prompt}\nHere are my wardrobe items:\n{wardrobe_items_json}"}
+    ]
+
+    # 3) Call OpenAI with the prompt and parse the response into StyleAnalysisResponse
+    completion = openai_client.beta.chat.completions.parse(
+        model="gpt-4o",
+        messages=messages,
+        response_format=StyleAnalysisResponse,
+    )
+
+    # Return the parsed style analysis
+    return completion.choices[0].message.parsed
+
+# --------------------------
+# Endpoint: GET /user/style-analysis
+# --------------------------
 
 @router.get("/user/style-analysis")
 async def get_style_analysis(current_user: UserItem = Depends(get_current_user)):
+    """
+    Manually trigger style analysis. Calls the helper function run_style_analysis_logic.
+    """
     try:
-        user_id = current_user['_id']
-        items_cursor = mongodb.wardrobe.find({"user_id": user_id})
-        wardrobe_items = []
-        for item in items_cursor:
-            wardrobe_items.append({
-                "name": item["name"],
-                "category": item["category"],
-                "tags": item["tags"]
-            })
-
-        if not wardrobe_items:
-            raise HTTPException(status_code=400, detail="No wardrobe items found for the user.")
-
-        wardrobe_items_json = json.dumps(wardrobe_items)
-        prompt = (
-            "Based on my wardrobe items, suggest the top 3 styles that fit me, "
-            "along with descriptions and reasoning. The output should be a JSON "
-            "object matching the following schema:\n"
-            "{\n"
-            "  \"top_styles\": [\n"
-            "    {\n"
-            "      \"style\": \"string\",\n"
-            "      \"description\": \"string\",\n"
-            "      \"reasoning\": \"string\"\n"
-            "    },\n"
-            "    ... (2 more styles)\n"
-            "  ]\n"
-            "}"
-        )
-        messages = [
-            {"role": "system", "content": "You are a fashion expert assistant."},
-            {"role": "user", "content": f"{prompt}\nHere are my wardrobe items:\n{wardrobe_items_json}"}
-        ]
-
-        completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-2024-08-06",
-            messages=messages,
-            response_format=StyleAnalysisResponse,
-        )
-        style_analysis = completion.choices[0].message.parsed
-
+        style_analysis = run_style_analysis_logic(current_user["_id"])
+        # Store the result in the user doc
         mongodb.users.update_one(
             {"_id": current_user["_id"]},
             {"$set": {"user_style": style_analysis.dict()}}
         )
         return style_analysis.dict()
-
-    except HTTPException as e:
-        raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/user/style-embedding")
-def get_user_style_embedding(current_user: UserItem = Depends(get_current_user)):
-    user = mongodb.users.find_one({"_id": current_user["_id"]})
-    if not user or "user_style" not in user:
-        raise HTTPException(status_code=400, detail="User style not found.")
 
+@router.post("/wardrobe/check-style-analysis")
+async def check_style_analysis(current_user: UserItem = Depends(get_current_user)):
+    """
+    Checks how many items are in the user's wardrobe and compares against last_analysis_count.
+    If the user added >=5 new items since the last analysis (or if they've never run analysis before),
+    runs style analysis and regenerates style recommendations. Otherwise, does nothing.
+    """
     try:
-        user_style_data = user["user_style"]
-        user_style = StyleAnalysisResponse.parse_obj(user_style_data)
-        embedding = user_style_to_embedding(user_style)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating embedding: {str(e)}")
+        user_id = current_user["_id"]
+        
+        # 1) Count how many items are in the user's wardrobe
+        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})
+        print(f"[DEBUG] Total wardrobe count: {total_count}")
+        
+        # 2) Fetch the user's document and check last_analysis_count
+        user_doc = mongodb.users.find_one({"_id": user_id})
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found.")
+        
+        last_analysis_count = user_doc.get("last_analysis_count", 0)
+        print(f"[DEBUG] last_analysis_count: {last_analysis_count}")
+        
+        # 3) Decide if we need to run style analysis
+        #    Condition: user added >=5 items since last analysis, or no prior analysis
+        if (total_count - last_analysis_count >= 5) or (last_analysis_count == 0):
+            print("[DEBUG] Running style analysis...")
+            style_analysis = run_style_analysis_logic(user_id)
 
-    mongodb.users.update_one(
-        {"_id": current_user["_id"]}, {"$set": {"style_embedding": embedding}}
-    )
-    return {"embedding": embedding}
+            # Build new style_recommendations from the style analysis
+            new_recommendations = []
+            for style_suggestion in style_analysis.top_styles:
+                style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
+                clothing_tag = str_to_clothing_tag(style_prompt)
+                tag_embed = clothing_tag_to_embedding(clothing_tag)
+                new_recommendations.append({
+                    'style_name': style_suggestion.style,
+                    'clothing_tag': clothing_tag.dict(),
+                    'tag_embed': tag_embed.dict()
+                })
 
-@router.get("/shop/recommendations")
-def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 50):
-    user = mongodb.users.find_one({"_id": current_user["_id"]})
-    if not user or "user_style" not in user:
-        raise HTTPException(status_code=400, detail="User style not found.")
-    
-    # Parse user style
-    try:
-        user_style_data = user["user_style"]
-        user_style = parse_obj_as(StyleAnalysisResponse, user_style_data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error parsing user style: {str(e)}")
-    
-    
-    # Ensure the recommendations_refresh_needed field exists in the DB
-    # If it doesn't, create it now, set to True.
-    if "recommendations_refresh_needed" not in user:
-        mongodb.users.update_one(
-            {"_id": current_user["_id"]},
-            {"$set": {"recommendations_refresh_needed": True}}
-        )
-        refresh_needed = True
-    else:
-        refresh_needed = user["recommendations_refresh_needed"]
+            print(f"[DEBUG] Generated {len(new_recommendations)} new style recommendations.")
 
-    # Either grab existing style_recommendations or regenerate them
-    style_recommendations = user.get("style_recommendations", [])
-
-    if refresh_needed:
-        # Build new style_recommendations from the user's style
-        new_recommendations = []
-        for style_suggestion in user_style.top_styles:
-            # Combine the style and reasoning into text for the embedding
-            style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
-            clothing_tag = str_to_clothing_tag(style_prompt)
-            tag_embed = clothing_tag_to_embedding(clothing_tag)
-            new_recommendations.append({
-                'style_name': style_suggestion.style,
-                'clothing_tag': clothing_tag.dict(),
-                'tag_embed': tag_embed.dict()
-            })
-
-        # Store them in the user record
-        mongodb.users.update_one(
-            {"_id": current_user["_id"]},
-            {
-                "$set": {
-                    "style_recommendations": new_recommendations,
-                    "recommendations_refresh_needed": False
+            # Update the user document with new recommendations
+            mongodb.users.update_one(
+                {"_id": user_id},
+                {
+                    "$set": {
+                        "style_recommendations": new_recommendations,
+                        "recommendations_refresh_needed": False,
+                        "last_analysis_count": total_count
+                    }
                 }
-            }
-        )
-        style_recommendations = new_recommendations
+            )
+            return {"message": "Style analysis performed. Recommendations updated."}
+        
+        # If we did not trigger new analysis
+        return {"message": "No style analysis triggered. Not enough new items."}
 
-    # Now do the usual logic to get recommended items via vector search
-    # (either from fresh or cached style_recommendations).
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/shop/recommendations")
+def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 10):
+    print("[DEBUG] Entering /shop/recommendations route")
+    
+    user_id = current_user["_id"]
+    print(f"[DEBUG] Current user_id: {user_id}")
+
+    # Fetch the user document from MongoDB
+    user = mongodb.users.find_one({"_id": user_id})
+    print(f"[DEBUG] Found user doc: {user}")
+
+    # Extract style_recommendations (array of objects, each with a 'tag_embed')
+    style_recommendations = user.get("style_recommendations", [])
+    print(f"[DEBUG] style_recommendations: {style_recommendations}")
+
+    # If empty, we cannot produce any recommendations
     if not style_recommendations:
+        print("[DEBUG] style_recommendations is empty. Throwing 400 error.")
         raise HTTPException(status_code=400, detail="No style recommendations available.")
 
+    # We will collect items from each style_recommendation until we reach 'n'
     recommendations = []
     item_ids = set()
+
     styles_count = len(style_recommendations)
     items_per_style = max(n // styles_count, 1)
+    print(f"[DEBUG] styles_count: {styles_count}, n: {n}, items_per_style: {items_per_style}")
 
-    for style_rec in style_recommendations:
-        # Rebuild the ClothingTagEmbed from the dict
-        tag_embed_dict = style_rec['tag_embed']
-        tag_embed = parse_obj_as(ClothingTagEmbed, tag_embed_dict)
+    # For each style_recommendation, run a vector search using its 'tag_embed'
+    for i, style_rec in enumerate(style_recommendations, start=1):
+        print(f"[DEBUG] style_rec #{i}: {style_rec}")
 
-        # Perform vector search
+        # Extract the dict containing the embedding
+        embed_dict = style_rec.get("tag_embed", {})
+        if not embed_dict:
+            print("[DEBUG] No 'tag_embed' in style_recommendation; skipping.")
+            continue
+
+        # Parse embed_dict into a ClothingTagEmbed
+        tag_embed = parse_obj_as(ClothingTagEmbed, embed_dict)
+        print("[DEBUG] Created ClothingTagEmbed from style_rec")
+
+        # Call your get_n_closest function
         recs = list(get_n_closest(tag_embed, items_per_style))
+        print(f"[DEBUG] get_n_closest returned {len(recs)} items for style #{i}")
+
+        # Accumulate results
         for rec in recs:
             rec_id_str = str(rec["_id"])
             if rec_id_str in item_ids:
+                print(f"[DEBUG] Already have item {rec_id_str}, skipping.")
                 continue
+            
             item_ids.add(rec_id_str)
             item_data = {
                 "id": rec_id_str,
@@ -339,12 +393,16 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
                 "other_tags": rec.get("other_tags", "")
             }
             recommendations.append(item_data)
+            print(f"[DEBUG] Added item {rec_id_str} to recommendations. Total so far: {len(recommendations)}")
+
             if len(recommendations) >= n:
+                print("[DEBUG] Reached 'n' items in recommendations, stopping.")
                 break
 
         if len(recommendations) >= n:
             break
 
+    print(f"[DEBUG] Final recommendations count: {len(recommendations)}")
     return recommendations
 
 class LooseRecommendedItem(BaseModel):
@@ -569,55 +627,6 @@ def get_item_by_id(item_id: str):
     item_doc["id"] = str(item_doc["_id"])
     del item_doc["_id"]
     return item_doc
-
-@router.post("/wardrobe/check-style-analysis")
-async def check_style_analysis(current_user = Depends(get_current_user)):
-    """
-    Checks the user's wardrobe count. If we've never run analysis before
-    (last_analysis_count == 0) OR they've added 5 or more items since last analysis,
-    then run style analysis and style embedding.
-    Otherwise, do nothing.
-    """
-    try:
-        user_id = current_user["_id"]
-        
-        # 1) Count how many items are in the user's wardrobe
-        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})
-        
-        # 2) Fetch the user's doc and check last_analysis_count
-        user_doc = mongodb.users.find_one({"_id": user_id})
-        if not user_doc:
-            raise HTTPException(status_code=404, detail="User not found.")
-        
-        last_analysis_count = user_doc.get("last_analysis_count", 0)
-        
-        # 3) Decide if we need to run style analysis
-        #    Condition 1: first-time analysis -> last_analysis_count == 0
-        #    Condition 2: user added >=5 items since last analysis
-        if last_analysis_count == 0 or (total_count - last_analysis_count >= 5):
-            # Run style analysis
-            style_analysis = await get_style_analysis(current_user)
-            
-            # Run style embedding
-            _ = get_user_style_embedding(current_user)
-            
-            # Update last_analysis_count and set the refresh flag
-            mongodb.users.update_one(
-                {"_id": user_id},
-                {
-                    "$set": {
-                        "last_analysis_count": total_count,
-                        "recommendations_refresh_needed": True
-                    }
-                }
-            )
-            return {"message": "Style analysis performed. Recommendations refresh flagged."}
-        
-        else:
-            return {"message": "No style analysis triggered. Not enough new items."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 # @router.post("/catalogue/generate-base-recommendations")
 # async def generate_base_recommendations(
