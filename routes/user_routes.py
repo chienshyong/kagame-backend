@@ -31,5 +31,4 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 # TODO: Remove this route example is no longer needed.
 @router.get("/username")
 async def login(current_user: str = Depends(get_current_user)):
-    print(current_user)
     return {"username": current_user['username']}

@@ -219,6 +219,7 @@ def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from
 
 
 def str_to_clothing_tag(search: str) -> ClothingTag:
+    print("DEPRECIATED, PLEASE USE ANOTHER FUNCTION")
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
@@ -228,6 +229,34 @@ def str_to_clothing_tag(search: str) -> ClothingTag:
                     {
                         "type": "text",
                         "text": "You'll be given a description for an outfit. Generate descriptor tags for this as a list in this order [styles, ocassion, fit, color, material]. If there are multiple styles separate them by commas. Add the word 'fit' in the fit descriptor (e.g. regular fit). If nothing can be inferred for the type or color or material, use \"NIL\". Give tags in all lowercase."
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": search
+                    }
+                ]
+            },
+        ],
+        response_format=ClothingTag
+    )
+    # TODO(maybe): Convert it to lowercase by code, in case chatgpt ignores the prompt and puts uppercase chars.
+    return ClothingTag(**json.loads(output.choices[0].message.content))
+
+def style_to_clothing_tag(search: str) -> ClothingTag:
+    output = openai_client.beta.chat.completions.parse(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "You'll be given a style. Generate accurate tags to describe the style"
                     }
                 ]
             },

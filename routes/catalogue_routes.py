@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 import services.mongodb as mongodb
 from services.openai import (
     ClothingTag,
-    str_to_clothing_tag,
+    style_to_clothing_tag,
     clothing_tag_to_embedding,
     get_n_closest,
     ClothingTagEmbed,
@@ -24,6 +24,7 @@ from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 import json
 from datetime import datetime
 import time
+import random
 
 router = APIRouter()
 
@@ -79,19 +80,6 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
             status_code=500,
             detail=f"An error occurred while fetching items: {str(e)}"
         )
-
-
-# @router.get("/shop/search")
-# def get_search_result(search: str, n: int):
-#     clothing_tag = str_to_clothing_tag(search)
-#     embedding = clothing_tag_to_embedding(clothing_tag)
-#     recs = list(get_n_closest(embedding, n))
-
-#     # Convert _id to string
-#     for rec in recs:
-#         rec['_id'] = str(rec['_id'])
-#     return recs
-
 
 @router.get("/shop/similar_items")
 def get_similar_items(id: str, n: int = 5):
@@ -279,28 +267,23 @@ async def check_style_analysis(current_user: UserItem = Depends(get_current_user
         user_id = current_user["_id"]
         
         # 1) Count how many items are in the user's wardrobe
-        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})
-        print(f"[DEBUG] Total wardrobe count: {total_count}")
-        
+        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})        
         # 2) Fetch the user's document and check last_analysis_count
         user_doc = mongodb.users.find_one({"_id": user_id})
         if not user_doc:
             raise HTTPException(status_code=404, detail="User not found.")
         
-        last_analysis_count = user_doc.get("last_analysis_count", 0)
-        print(f"[DEBUG] last_analysis_count: {last_analysis_count}")
-        
+        last_analysis_count = user_doc.get("last_analysis_count", 0)        
         # 3) Decide if we need to run style analysis
         #    Condition: user added >=5 items since last analysis, or no prior analysis
         if (total_count - last_analysis_count >= 5) or (last_analysis_count == 0):
-            print("[DEBUG] Running style analysis...")
             style_analysis = run_style_analysis_logic(user_id)
 
             # Build new style_recommendations from the style analysis
             new_recommendations = []
             for style_suggestion in style_analysis.top_styles:
                 style_prompt = f"{style_suggestion.style}: {style_suggestion.description} {style_suggestion.reasoning}"
-                clothing_tag = str_to_clothing_tag(style_prompt)
+                clothing_tag = style_to_clothing_tag(style_prompt)
                 tag_embed = clothing_tag_to_embedding(clothing_tag)
                 new_recommendations.append({
                     'style_name': style_suggestion.style,
@@ -308,15 +291,12 @@ async def check_style_analysis(current_user: UserItem = Depends(get_current_user
                     'tag_embed': tag_embed.dict()
                 })
 
-            print(f"[DEBUG] Generated {len(new_recommendations)} new style recommendations.")
-
             # Update the user document with new recommendations
             mongodb.users.update_one(
                 {"_id": user_id},
                 {
                     "$set": {
                         "style_recommendations": new_recommendations,
-                        "recommendations_refresh_needed": False,
                         "last_analysis_count": total_count
                     }
                 }
@@ -383,6 +363,168 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         if len(recommendations) >= n:
             break
     return recommendations
+@router.get("/shop/recommendations-fast")
+def get_recommendations_fast(
+    current_user: UserItem = Depends(get_current_user),
+    n: int = 25,
+    category: Optional[str] = Query(None, description="Filter by category (e.g., 'Tops', 'Bottoms', 'Shoes')"),
+    candidate_pool: int = 100
+):
+    """
+    Returns style-based recommendations using a single, combined embedding vector
+    created by merging all the user's style preferences together.
+    
+    - n: Total number of recommendations to return
+    - category: Optional category filter
+    - candidate_pool: Size of initial vector search results (before filtering)
+    """
+    start_time = time.perf_counter()
+    timings = {}
+    
+    # 1) Fetch user's style recommendations
+    user_fetch_start = time.perf_counter()
+    user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    style_recs = user_doc.get("style_recommendations", [])
+    if not style_recs:
+        raise HTTPException(status_code=400, detail="No style recommendations found for this user.")
+    timings["fetch_user"] = time.perf_counter() - user_fetch_start
+    
+    # 2) Extract all style names and combine all style embeddings
+    style_names = []
+    combined_vector = None
+    vector_dim = None
+    
+    # First, determine the embedding dimension
+    combine_start = time.perf_counter()
+    for style_rec in style_recs:
+        style_names.append(style_rec.get("style_name", "Unknown Style"))
+        
+        # Extract other_tags_embed (this is what we want to combine)
+        embed_dict = style_rec.get("tag_embed", {})
+        other_tags_embed = embed_dict.get("other_tags_embed", [])
+        
+        # If we find a non-empty embedding, get its dimension
+        if other_tags_embed and not vector_dim:
+            vector_dim = len(other_tags_embed[0]) if other_tags_embed else 0
+    
+    # If we couldn't determine the dimension, return an error
+    if not vector_dim:
+        raise HTTPException(status_code=500, detail="Could not determine embedding dimension")
+    
+    # Initialize a zero vector with the correct dimension
+    combined_vector = [0.0] * vector_dim
+    
+    # Now combine all embeddings by summing them together
+    for style_rec in style_recs:
+        embed_dict = style_rec.get("tag_embed", {})
+        other_tags_embed = embed_dict.get("other_tags_embed", [])
+        
+        if other_tags_embed:
+            # Sum all vectors in other_tags_embed
+            for vec in other_tags_embed:
+                for i in range(vector_dim):
+                    combined_vector[i] += vec[i]
+    
+    # Normalize the combined vector to maintain consistent magnitudes
+    # Skip if the vector is all zeros
+    if any(combined_vector):
+        magnitude = sum(x**2 for x in combined_vector) ** 0.5
+        if magnitude > 0:
+            combined_vector = [x/magnitude for x in combined_vector]
+    
+    timings["combine_embeddings"] = time.perf_counter() - combine_start
+            
+    # 3) Build filter criteria
+    filter_criteria = {}
+    if category:
+        filter_criteria["category"] = category
+        
+    # 4) Perform a single vector search with the combined embedding
+    search_start = time.perf_counter()
+    
+    # Build the vector search pipeline - only include filter if we have criteria
+    vector_search_params = {
+        "index": "combined_embed_index",
+        "path": "combined_embed",
+        "queryVector": combined_vector,
+        "limit": candidate_pool,
+        "numCandidates": candidate_pool * 10
+    }
+    
+    # Only add filter if we have filter criteria
+    if filter_criteria:
+        vector_search_params["filter"] = filter_criteria
+    
+    pipeline = [
+        {
+            "$vectorSearch": vector_search_params
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "category": 1,
+                "price": 1,
+                "image_url": 1,
+                "product_url": 1,
+                "clothing_type": 1,
+                "color": 1,
+                "material": 1,
+                "other_tags": 1,
+                "score": {"$meta": "vectorSearchScore"},
+                "cropped_image_url": 1
+            }
+        },
+        {"$sort": {"score": -1}},
+        {"$limit": n}
+    ]
+    
+    cursor = mongodb.catalogue.aggregate(pipeline)
+    search_results = list(cursor)
+    timings["search_combined"] = time.perf_counter() - search_start
+    
+    # 5) Process results and shuffle
+    process_start = time.perf_counter()
+    recommendations = []
+    
+    for item in search_results:
+        item_data = {
+            "id": str(item["_id"]),
+            "name": item.get("name", ""),
+            "category": item.get("category", ""),
+            "price": item.get("price", ""),
+            "image_url": item.get("image_url", ""),
+            "product_url": item.get("product_url", ""),
+            "clothing_type": item.get("clothing_type", ""),
+            "color": item.get("color", ""),
+            "material": item.get("material", ""),
+            "other_tags": item.get("other_tags", ""),
+            "score": item.get("score", 0),
+            "cropped_image_url": item.get("cropped_image_url", "")
+        }
+        recommendations.append(item_data)
+    
+    # Shuffle recommendations for variety
+    import random
+    random.shuffle(recommendations)
+    
+    timings["process_results"] = time.perf_counter() - process_start
+    
+    # Log performance metrics
+    total_time = time.perf_counter() - start_time
+    print(f"===== Fast Recommendations Performance =====")
+    print(f"Total time: {total_time:.4f} seconds")
+    for step, elapsed in timings.items():
+        print(f"  {step}: {elapsed:.4f} seconds")
+    
+    return {
+        "styles": style_names,
+        "recommendations": recommendations,
+        "total_items": len(recommendations)
+    }
 
 class LooseRecommendedItem(BaseModel):
     reason: str
@@ -937,31 +1079,23 @@ def fast_item_outfit_search_with_style(
     top_k: int = 10,
     candidate_pool: int = 50
 ):
-    timings = {}
-
     def merge_vectors(vecA: List[float], vecB: List[float]) -> List[float]:
         if len(vecA) != len(vecB):
             raise ValueError("Vector dimensions do not match")
         return [a + b for a, b in zip(vecA, vecB)]
 
     # STEP 1) Validate item_id
-    start = time.perf_counter()
     try:
         object_id = ObjectId(item_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid item ID format")
-    timings["step1_validate_item_id"] = time.perf_counter() - start
 
     # STEP 2) Fetch the main item
-    start = time.perf_counter()
     item = mongodb.catalogue.find_one({"_id": object_id})
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     category = item.get("category", "")
-    timings["step2_fetch_main_item"] = time.perf_counter() - start
-
     # STEP 3) Ensure base_recommendations exist (generate if missing)
-    start = time.perf_counter()
     if "base_recommendations" not in item or not item["base_recommendations"]:
         clothing_type = item.get("clothing_type", "")
         color = item.get("color", "")
@@ -992,10 +1126,8 @@ def fast_item_outfit_search_with_style(
             {"$set": {"base_recommendations": updated_recs}}
         )
         item["base_recommendations"] = updated_recs
-    timings["step3_ensure_base_recs"] = time.perf_counter() - start
 
     # STEP 4) Build a combined embed for each base recommendation
-    start = time.perf_counter()
     base_recommendations = item["base_recommendations"]
     base_recs_with_combined = []
     for rec in base_recommendations:
@@ -1026,20 +1158,12 @@ def fast_item_outfit_search_with_style(
     if not base_recs_with_combined:
         raise HTTPException(status_code=500, detail="No valid base recommendation embeddings found.")
     default_dim = len(base_recs_with_combined[0]["base_combined_embed"])
-    timings["step4_build_combined_embeds"] = time.perf_counter() - start
-
-    # STEP 5) Fetch user's style_recommendations
-    start = time.perf_counter()
     user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
     if not user_doc:
         raise HTTPException(status_code=404, detail="User not found.")
     style_recs = user_doc.get("style_recommendations", [])
     if not style_recs:
         raise HTTPException(status_code=400, detail="No style_recommendations found for this user.")
-    timings["step5_fetch_style_recs"] = time.perf_counter() - start
-
-    # STEP 6/7) Merge base + style & do vector search
-    start = time.perf_counter()
     styles_output = []
 
     for style_rec in style_recs:
@@ -1101,11 +1225,6 @@ def fast_item_outfit_search_with_style(
             top_items = list(cursor)
             search_time = time.perf_counter() - search_start
 
-            # Print or log the times for each iteration
-            print(f"--- Merging + Search for style [{style_name}] ---")
-            print(f"  Merge time:  {merge_time:.4f} seconds")
-            print(f"  Search time: {search_time:.4f} seconds")
-
             style_outfits.append({
                 "base_recommendation": base_obj["base_recommendation"],
                 "top_items": [
@@ -1131,13 +1250,6 @@ def fast_item_outfit_search_with_style(
             "style_name": style_name,
             "style_outfits": style_outfits
         })
-
-    timings["step6_7_merge_and_search"] = time.perf_counter() - start
-
-    # Print out the timings on the backend
-    print("===== Timings for fast_item_outfit_search_with_style =====")
-    for step, elapsed in timings.items():
-        print(f"{step}: {elapsed:.4f} seconds")
 
     # Return the final data without timings
     return {
