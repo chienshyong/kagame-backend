@@ -328,24 +328,16 @@ async def check_style_analysis(current_user: UserItem = Depends(get_current_user
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-@router.get("/shop/recommendations")
-def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 10):
-    print("[DEBUG] Entering /shop/recommendations route")
     
+@router.get("/shop/recommendations")
+def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 25):
     user_id = current_user["_id"]
-    print(f"[DEBUG] Current user_id: {user_id}")
-
     # Fetch the user document from MongoDB
     user = mongodb.users.find_one({"_id": user_id})
-    print(f"[DEBUG] Found user doc: {user}")
-
     # Extract style_recommendations (array of objects, each with a 'tag_embed')
     style_recommendations = user.get("style_recommendations", [])
-    print(f"[DEBUG] style_recommendations: {style_recommendations}")
-
     # If empty, we cannot produce any recommendations
     if not style_recommendations:
-        print("[DEBUG] style_recommendations is empty. Throwing 400 error.")
         raise HTTPException(status_code=400, detail="No style recommendations available.")
 
     # We will collect items from each style_recommendation until we reach 'n'
@@ -354,31 +346,21 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
 
     styles_count = len(style_recommendations)
     items_per_style = max(n // styles_count, 1)
-    print(f"[DEBUG] styles_count: {styles_count}, n: {n}, items_per_style: {items_per_style}")
-
     # For each style_recommendation, run a vector search using its 'tag_embed'
     for i, style_rec in enumerate(style_recommendations, start=1):
-        print(f"[DEBUG] style_rec #{i}: {style_rec}")
-
         # Extract the dict containing the embedding
         embed_dict = style_rec.get("tag_embed", {})
         if not embed_dict:
-            print("[DEBUG] No 'tag_embed' in style_recommendation; skipping.")
             continue
 
         # Parse embed_dict into a ClothingTagEmbed
         tag_embed = parse_obj_as(ClothingTagEmbed, embed_dict)
-        print("[DEBUG] Created ClothingTagEmbed from style_rec")
-
         # Call your get_n_closest function
         recs = list(get_n_closest(tag_embed, items_per_style))
-        print(f"[DEBUG] get_n_closest returned {len(recs)} items for style #{i}")
-
         # Accumulate results
         for rec in recs:
             rec_id_str = str(rec["_id"])
             if rec_id_str in item_ids:
-                print(f"[DEBUG] Already have item {rec_id_str}, skipping.")
                 continue
             
             item_ids.add(rec_id_str)
@@ -395,16 +377,11 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
                 "other_tags": rec.get("other_tags", "")
             }
             recommendations.append(item_data)
-            print(f"[DEBUG] Added item {rec_id_str} to recommendations. Total so far: {len(recommendations)}")
-
             if len(recommendations) >= n:
-                print("[DEBUG] Reached 'n' items in recommendations, stopping.")
                 break
 
         if len(recommendations) >= n:
             break
-
-    print(f"[DEBUG] Final recommendations count: {len(recommendations)}")
     return recommendations
 
 class LooseRecommendedItem(BaseModel):
@@ -1308,6 +1285,7 @@ def fast_item_outfit_search_with_style_stream(
         return [a + b for a, b in zip(vecA, vecB)]
 
     def sse_event_generator():
+        yield "data: {\"test\":true, \"message\":\"Connection established\"}\n\n"
         # 1) Validate item_id
         try:
             object_id = ObjectId(item_id)
@@ -1483,5 +1461,10 @@ def fast_item_outfit_search_with_style_stream(
 
     return StreamingResponse(
         sse_event_generator(),
-        media_type="text/event-stream"
-    )
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
+        }
+        )
