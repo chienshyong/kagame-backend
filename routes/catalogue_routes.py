@@ -12,7 +12,8 @@ from services.openai import (
     compile_tags_and_embeddings_for_item,
     get_all_catalogue_ids,
     WardrobeTag, 
-    generate_base_catalogue_recommendation
+    generate_base_catalogue_recommendation,
+    get_n_closest_no_other_tags
 )
 from bson import ObjectId
 from services.user import get_current_user
@@ -105,7 +106,7 @@ def get_similar_items(id: str, n: int = 5):
             other_tags_embed=product.get('other_tags_embed')
         )
 
-        recs = list(get_n_closest(tag_embed, n + 1))
+        recs = list(get_n_closest_no_other_tags(tag_embed, n + 1))
 
         response = []
         for rec in recs:
@@ -1460,10 +1461,10 @@ def fast_item_outfit_search_with_style_stream(
                 color_embed=rec["color_embed"],
                 material_embed=rec["material_embed"],
                 other_tags_embed=rec["other_tags_embed"],
-                w_ctype=1.1,
+                w_ctype=0.3,
                 w_color=0.2,
                 w_material=0.2,
-                w_others=0.2
+                w_others=0.4
             )
             base_recs_with_combined.append({
                 "base_recommendation": {

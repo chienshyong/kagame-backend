@@ -889,3 +889,64 @@ def get_all_catalogue_ids() -> list[str]:
     catalogue_col = db.catalogue
     ids = catalogue_col.find({}, {"_id": 1})
     return [str(doc["_id"]) for doc in ids]
+
+
+def get_n_closest_no_other_tags(tag_embed: ClothingTagEmbed, n: int):
+    FIRST_STAGE_FILTER_RATIO = 10
+    CANDIDATE_TO_LIMIT_RATIO = 10
+    CLOTHING_TYPE_WEIGHT = 0.7
+    COLOR_WEIGHT = 0.3
+
+    bucket_count = get_catalogue_metadata().bucket_count
+    bucket_num = random.randint(1, bucket_count)
+
+    pipeline = [
+        {
+            '$vectorSearch': {
+                'index': 'vector_index',
+                'path': 'clothing_type_embed',
+                'queryVector': tag_embed.clothing_type_embed,
+                'numCandidates': n * FIRST_STAGE_FILTER_RATIO * CANDIDATE_TO_LIMIT_RATIO,
+                'limit': n * FIRST_STAGE_FILTER_RATIO,
+                'filter': {'bucket_num': bucket_num}
+            }
+        },
+        {
+            "$addFields": {
+                "color_score": calculate_dot_product("$color_embed", tag_embed.color_embed)
+            }
+        },
+        {
+            "$addFields": {
+                "combined_score": {
+                    "$add": [
+                        {"$multiply": [CLOTHING_TYPE_WEIGHT, {"$meta": "vectorSearchScore"}]},
+                        {"$multiply": [COLOR_WEIGHT, "$color_score"]}
+                    ]
+                }
+            }
+        },
+        {
+            "$sort": {"combined_score": -1}
+        },
+        {
+            "$limit": n
+        },
+        {
+            '$project': {
+                '_id': 1,
+                'name': 1,
+                'category': 1,
+                'color': 1,
+                'clothing_type': 1,
+                'material': 1,
+                'other_tags': 1,
+                'price': 1,
+                'image_url': 1,
+                'product_url': 1,
+                'retailer': 1,
+                'gender': 1
+            }
+        }
+    ]
+    return catalogue.aggregate(pipeline)
