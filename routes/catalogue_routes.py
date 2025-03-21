@@ -1623,6 +1623,7 @@ def fast_item_outfit_search_with_style_stream(
             "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
         }
         )
+
 @router.get("/user/gender")
 async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
     """
@@ -1653,3 +1654,1015 @@ async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
             status_code=500,
             detail=f"An error occurred while fetching user gender: {str(e)}"
         )
+
+"""
+Style Chat Module for fashion recommendations.
+
+This module provides chat-based interfaces for fashion recommendations,
+allowing users to describe what they're looking for in natural language
+and receive outfit suggestions based on their input.
+"""
+
+
+from typing import List, Dict, Optional, Any
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from datetime import datetime
+import json
+from bson import ObjectId
+from fastapi.responses import StreamingResponse
+
+
+
+# Define request models
+class ChatOutfitRequest(BaseModel):
+    prompt: str
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+
+class ConversationUpdateRequest(BaseModel):
+    conversation_id: Optional[str] = None
+    conversation_history: List[Dict[str, Any]]
+    user_feedback: Optional[Dict[str, Any]] = None
+
+# Helper functions for outfit creation
+def organize_items_by_category(items: List[Dict]) -> Dict[str, List[Dict]]:
+    """
+    Organize clothing items by category for outfit creation.
+    
+    Args:
+        items: List of clothing items
+        
+    Returns:
+        Dictionary with categories as keys and lists of items as values
+    """
+    categories = {
+        "Tops": [],
+        "Bottoms": [],
+        "Dresses": [],
+        "Shoes": [],
+        "Accessories": [],
+        "Outerwear": []
+    }
+    
+    # Sort items into categories
+    for item in items:
+        category = item.get("category", "")
+        if category in categories:
+            categories[category].append(item)
+    
+    return categories
+
+def create_outfits(categorized_items: Dict[str, List[Dict]], max_outfits: int = 5) -> List[Dict]:
+    """
+    Create complete outfits from categorized items.
+    Now more flexible when certain categories are missing.
+    
+    An outfit can be:
+    1. Top + Bottom + Shoes (ideal)
+    2. Dress + Shoes (ideal)
+    3. Top + Bottom (if no shoes available)
+    4. Dress only (if no shoes available)
+    5. Top + Bottom + Outerwear + Shoes (ideal with outerwear)
+    
+    Args:
+        categorized_items: Dictionary with categories as keys and lists of items as values
+        max_outfits: Maximum number of outfits to create
+        
+    Returns:
+        List of outfit dictionaries
+    """
+    outfits = []
+    
+    # Get items sorted by score
+    tops = sorted(categorized_items.get("Tops", []), key=lambda x: x.get("score", 0), reverse=True)
+    bottoms = sorted(categorized_items.get("Bottoms", []), key=lambda x: x.get("score", 0), reverse=True)
+    dresses = sorted(categorized_items.get("Dresses", []), key=lambda x: x.get("score", 0), reverse=True)
+    shoes = sorted(categorized_items.get("Shoes", []), key=lambda x: x.get("score", 0), reverse=True)
+    outerwear = sorted(categorized_items.get("Outerwear", []), key=lambda x: x.get("score", 0), reverse=True)
+    
+    # Create dress-based outfits
+    for i, dress in enumerate(dresses[:min(len(dresses), max_outfits)]):
+        if shoes and i < len(shoes):
+            # Complete outfit with shoes
+            outfit = {
+                "type": "dress_outfit",
+                "items": {
+                    "dress": dress,
+                    "shoes": shoes[i]
+                },
+                "score": dress.get("score", 0) + shoes[i].get("score", 0)
+            }
+        else:
+            # Dress-only outfit (when no shoes available)
+            outfit = {
+                "type": "dress_outfit",
+                "items": {
+                    "dress": dress
+                },
+                "score": dress.get("score", 0)
+            }
+            
+        outfits.append(outfit)
+    
+    # Create top+bottom outfits
+    for i, top in enumerate(tops[:min(len(tops), max_outfits)]):
+        if i >= len(bottoms) or not bottoms:
+            continue
+            
+        bottom = bottoms[i]
+        selected_shoes = shoes[i] if shoes and i < len(shoes) else None
+        selected_outerwear = outerwear[i] if outerwear and i < len(outerwear) else None
+        
+        outfit_items = {
+            "top": top,
+            "bottom": bottom
+        }
+        
+        if selected_shoes:
+            outfit_items["shoes"] = selected_shoes
+            
+        if selected_outerwear:
+            outfit_items["outerwear"] = selected_outerwear
+        
+        # Calculate total score
+        score = top.get("score", 0) + bottom.get("score", 0)
+        if selected_shoes:
+            score += selected_shoes.get("score", 0)
+        if selected_outerwear:
+            score += selected_outerwear.get("score", 0)
+        
+        outfit = {
+            "type": "separates_outfit",
+            "items": outfit_items,
+            "score": score
+        }
+        outfits.append(outfit)
+    
+    # If we still don't have outfits but have single category items,
+    # create "incomplete" outfits to show something
+    if not outfits:
+        # If we have dresses but no outfits were created
+        if dresses:
+            for i, dress in enumerate(dresses[:min(len(dresses), max_outfits)]):
+                outfit = {
+                    "type": "single_item_outfit",
+                    "items": {
+                        "main_item": dress
+                    },
+                    "score": dress.get("score", 0),
+                    "is_complete": False
+                }
+                outfits.append(outfit)
+        
+        # If we have tops but no outfits were created
+        elif tops:
+            for i, top in enumerate(tops[:min(len(tops), max_outfits)]):
+                outfit = {
+                    "type": "single_item_outfit",
+                    "items": {
+                        "main_item": top
+                    },
+                    "score": top.get("score", 0),
+                    "is_complete": False
+                }
+                outfits.append(outfit)
+    
+    # Sort outfits by score and limit to max_outfits
+    sorted_outfits = sorted(outfits, key=lambda x: x.get("score", 0), reverse=True)
+    return sorted_outfits[:max_outfits]
+
+def generate_outfit_description(outfit: Dict, clothing_tag: Dict) -> str:
+    """
+    Generate a natural language description of an outfit.
+    Now handles more flexible outfit compositions.
+    
+    Args:
+        outfit: Outfit dictionary
+        clothing_tag: The original clothing tag from the user's request
+        
+    Returns:
+        String description of the outfit
+    """
+    if outfit["type"] == "dress_outfit":
+        dress = outfit["items"]["dress"]
+        shoes = outfit["items"].get("shoes")
+        
+        description = f"I've selected a {dress.get('color', '')} {dress.get('material', '')} {dress.get('clothing_type', 'dress')}"
+        
+        if shoes:
+            description += f" paired with {shoes.get('color', '')} {shoes.get('clothing_type', 'shoes')}"
+        else:
+            description += " as the centerpiece of your outfit"
+        
+        description += "."
+    
+    elif outfit["type"] == "separates_outfit":
+        top = outfit["items"]["top"]
+        bottom = outfit["items"]["bottom"]
+        shoes = outfit["items"].get("shoes")
+        outerwear = outfit["items"].get("outerwear")
+        
+        description = f"I've chosen a {top.get('color', '')} {top.get('material', '')} {top.get('clothing_type', 'top')} with "
+        description += f"{bottom.get('color', '')} {bottom.get('material', '')} {bottom.get('clothing_type', 'bottom')}"
+        
+        if shoes:
+            description += f" and {shoes.get('color', '')} {shoes.get('clothing_type', 'shoes')}"
+        
+        if outerwear:
+            description += f". To complete the look, I've added a {outerwear.get('color', '')} {outerwear.get('material', '')} {outerwear.get('clothing_type', 'outerwear')}"
+        
+        description += "."
+    
+    elif outfit["type"] == "single_item_outfit":
+        item = outfit["items"]["main_item"]
+        category = item.get("category", "")
+        
+        if category == "Dresses":
+            description = f"I've found this beautiful {item.get('color', '')} {item.get('material', '')} {item.get('clothing_type', 'dress')} that matches your style perfectly."
+        elif category == "Tops":
+            description = f"I've selected this {item.get('color', '')} {item.get('material', '')} {item.get('clothing_type', 'top')} that would be a great foundation for your outfit."
+        elif category == "Bottoms":
+            description = f"These {item.get('color', '')} {item.get('material', '')} {item.get('clothing_type', 'bottoms')} would be perfect for your style needs."
+        else:
+            description = f"I've selected this {item.get('color', '')} {item.get('material', '')} {item.get('clothing_type', 'item')} for you."
+            
+        description += " You might want to pair it with complementary pieces to complete your look."
+    
+    else:
+        # Fallback for any other outfit type
+        description = "I've put together an outfit based on your style preferences."
+    
+    # Add style notes based on the clothing tags
+    if clothing_tag and "other_tags" in clothing_tag and clothing_tag["other_tags"]:
+        style_keywords = ", ".join(clothing_tag["other_tags"][:3])  # Use top 3 tags
+        description += f" This selection embodies a {style_keywords} style as you requested."
+    
+    return description
+# Text to ClothingTag conversion functions
+async def text_to_clothing_tag(prompt: str, user: dict) -> ClothingTag:
+    """
+    Convert user text prompt to a ClothingTag using OpenAI.
+    """
+    # Get user profile for personalization
+    user_profile = {
+        "age": user.get("age", 30),
+        "gender": user.get("gender", "unknown"),
+        "location": user.get("location", "unknown"),
+        "skin_tone": user.get("skin_tone", "unknown"),
+        "style": user.get("style", "casual"),
+        "clothing_likes": user.get("clothing_likes", "comfortable clothes"),
+        "clothing_dislikes": user.get("clothing_dislikes", "uncomfortable clothes")
+    }
+    
+    openai_output = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                    "type": "text",
+                    "text": f"""You are a fashion stylist AI. Convert the user's text prompt into structured clothing tags.
+                    
+                    Output a JSON object with the following properties:
+                    - clothing_type: A specific type of clothing item (e.g., "pleated skirt", "oxford shirt")
+                    - color: Main color of the item (e.g., "navy blue", "pastel pink")
+                    - material: Primary material (e.g., "cotton", "silk", "denim")
+                    - other_tags: Array of style descriptors, occasions, fits, etc.
+                    
+                    Consider the user profile when interpreting vague requests:
+                    User Persona: {user_profile['age']}-year-old {user_profile['gender']} in {user_profile['location']}, {user_profile['skin_tone']} skin, {user_profile['style']} style.
+                    Likes: {user_profile['clothing_likes']}.
+                    Dislikes: {user_profile['clothing_dislikes']}.
+                    """}
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        response_format={
+            "type": "json_object"
+        },
+        tools=[
+            {
+            "type": "function",
+            "function": {
+                "name": "generate_clothing_tag",
+                "description": "Generates structured clothing tags from user description",
+                "parameters": {
+                "type": "object",
+                "required": [
+                    "clothing_type",
+                    "color",
+                    "material",
+                    "other_tags"
+                ],
+                "properties": {
+                    "color": {
+                        "type": "string",
+                        "description": "Color of the clothing item"
+                    },
+                    "material": {
+                        "type": "string",
+                        "description": "Material of the clothing item"
+                    },
+                    "other_tags": {
+                        "type": "array",
+                        "items": {
+                        "type": "string",
+                        "description": "Additional tags related to clothing characteristics"
+                        },
+                        "description": "Additional tags describing the clothing"
+                    },
+                    "clothing_type": {
+                        "type": "string",
+                        "description": "Type of clothing item"
+                    }
+                },
+                "additionalProperties": False
+                },
+                "strict": True
+            }
+            }
+        ],
+        tool_choice={"type": "function", "function": {"name": "generate_clothing_tag"}},
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1
+    )
+    
+    tool_call = openai_output.choices[0].message.tool_calls[0]
+    clothing_data = json.loads(tool_call.function.arguments)
+    
+    return ClothingTag(**clothing_data)
+
+async def text_to_clothing_tag_with_context(
+    prompt: str, 
+    user: dict, 
+    previous_tag: Optional[Dict] = None,
+    conversation_history: Optional[List[Dict]] = None
+) -> ClothingTag:
+    """
+    Convert user text prompt to a ClothingTag using OpenAI with context from previous interactions.
+    """
+    # Get user profile for personalization
+    user_profile = {
+        "age": user.get("age", 30),
+        "gender": user.get("gender", "unknown"),
+        "location": user.get("location", "unknown"),
+        "skin_tone": user.get("skin_tone", "unknown"),
+        "style": user.get("style", "casual"),
+        "clothing_likes": user.get("clothing_likes", "comfortable clothes"),
+        "clothing_dislikes": user.get("clothing_dislikes", "uncomfortable clothes")
+    }
+    
+    # Format conversation history for context
+    conversation_context = ""
+    if conversation_history:
+        for msg in conversation_history[-6:]:  # Last 6 messages for context
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+            if role and content:
+                conversation_context += f"{role.capitalize()}: {content}\n"
+    
+    # Include previous tag if available
+    previous_tag_context = ""
+    if previous_tag:
+        previous_tag_context = f"Previously generated clothing tag: {json.dumps(previous_tag)}\n"
+    
+    openai_output = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                    "type": "text",
+                    "text": f"""You are a fashion stylist AI. Convert the user's text prompt into structured clothing tags.
+                    
+                    Output a JSON object with the following properties:
+                    - clothing_type: A specific type of clothing item (e.g., "pleated skirt", "oxford shirt")
+                    - color: Main color of the item (e.g., "navy blue", "pastel pink")
+                    - material: Primary material (e.g., "cotton", "silk", "denim")
+                    - other_tags: Array of style descriptors, occasions, fits, etc.
+                    
+                    Consider the user profile when interpreting vague requests:
+                    User Persona: {user_profile['age']}-year-old {user_profile['gender']} in {user_profile['location']}, {user_profile['skin_tone']} skin, {user_profile['style']} style.
+                    Likes: {user_profile['clothing_likes']}.
+                    Dislikes: {user_profile['clothing_dislikes']}.
+                    
+                    Conversation context:
+                    {conversation_context}
+                    
+                    {previous_tag_context}
+                    
+                    The user's new prompt is a refinement or follow-up to the previous conversation. Interpret it in context and generate updated clothing tags.
+                    """}
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        response_format={
+            "type": "json_object"
+        },
+        tools=[
+            {
+            "type": "function",
+            "function": {
+                "name": "generate_clothing_tag",
+                "description": "Generates structured clothing tags from user description",
+                "parameters": {
+                "type": "object",
+                "required": [
+                    "clothing_type",
+                    "color",
+                    "material",
+                    "other_tags"
+                ],
+                "properties": {
+                    "color": {
+                        "type": "string",
+                        "description": "Color of the clothing item"
+                    },
+                    "material": {
+                        "type": "string",
+                        "description": "Material of the clothing item"
+                    },
+                    "other_tags": {
+                        "type": "array",
+                        "items": {
+                        "type": "string",
+                        "description": "Additional tags related to clothing characteristics"
+                        },
+                        "description": "Additional tags describing the clothing"
+                    },
+                    "clothing_type": {
+                        "type": "string",
+                        "description": "Type of clothing item"
+                    }
+                },
+                "additionalProperties": False
+                },
+                "strict": True
+            }
+            }
+        ],
+        tool_choice={"type": "function", "function": {"name": "generate_clothing_tag"}},
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1
+    )
+    
+    tool_call = openai_output.choices[0].message.tool_calls[0]
+    clothing_data = json.loads(tool_call.function.arguments)
+    
+    return ClothingTag(**clothing_data)
+
+# Route definitions
+@router.post("/chat-outfit-search")
+async def chat_outfit_search(
+    request: ChatOutfitRequest,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 10,
+    candidate_pool: int = 50
+):
+    """
+    Search for outfits based on a text prompt in a chat-like interface.
+    Allows for iterative refinement through conversation.
+    """
+    # 1. Extract the user prompt and history
+    user_prompt = request.prompt
+    conversation_history = request.conversation_history or []
+    
+    # 2. Determine if this is a refinement or new request
+    is_refinement = len(conversation_history) > 0
+    
+    # 3. If refinement, use the conversation history to improve context
+    if is_refinement:
+        # Get the last generated clothing tag
+        last_tag = None
+        for message in reversed(conversation_history):
+            if message.get("role") == "assistant" and message.get("clothing_tag"):
+                last_tag = message["clothing_tag"]
+                break
+        
+        # Convert prompt to ClothingTag with context from last tag
+        clothing_tag = await text_to_clothing_tag_with_context(
+            prompt=user_prompt, 
+            user=current_user, 
+            previous_tag=last_tag,
+            conversation_history=conversation_history
+        )
+    else:
+        # New request, generate fresh clothing tag
+        clothing_tag = await text_to_clothing_tag(user_prompt, current_user)
+    
+    # 4. Generate embeddings for the ClothingTag
+    tag_embeds = clothing_tag_to_embedding(clothing_tag)
+    
+    # 5. Build combined embedding
+    combined_embed = build_combined_embedding(
+        clothing_type_embed=tag_embeds.clothing_type_embed,
+        color_embed=tag_embeds.color_embed,
+        material_embed=tag_embeds.material_embed,
+        other_tags_embed=tag_embeds.other_tags_embed,
+        w_ctype=0.3,
+        w_color=0.2,
+        w_material=0.2,
+        w_others=0.3
+    )
+    
+    # 6. Search the catalogue
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "combined_embed_index",
+                "path": "combined_embed",
+                "queryVector": combined_embed,
+                "limit": candidate_pool,
+                "numCandidates": candidate_pool * 10
+            }
+        },
+        {
+            "$project": {
+                "_id":1, "name":1, "category":1, "price":1, 
+                "image_url":1, "product_url":1,
+                "clothing_type":1, "color":1, "material":1,
+                "other_tags":1, "score":{"$meta":"vectorSearchScore"},
+                "cropped_image_url":1
+            }
+        },
+        {"$sort": {"score": -1}},
+        {"$limit": top_k}
+    ]
+    
+    cursor = mongodb.catalogue.aggregate(pipeline)
+    items = list(cursor)
+    
+    # 7. Format response
+    outfit_items = [
+        {
+            "id": str(doc["_id"]),
+            "name": doc.get("name",""),
+            "category": doc.get("category",""),
+            "price": doc.get("price",""),
+            "image_url": doc.get("image_url",""),
+            "product_url": doc.get("product_url",""),
+            "clothing_type": doc.get("clothing_type",""),
+            "color": doc.get("color",""),
+            "material": doc.get("material",""),
+            "other_tags": doc.get("other_tags",[]),
+            "score": doc["score"],
+            "cropped_image_url": doc.get("cropped_image_url",""),
+        }
+        for doc in items
+    ]
+    
+    # 8. Organize items by category and create outfits
+    categorized_items = organize_items_by_category(outfit_items)
+    outfits = create_outfits(categorized_items, max_outfits=3)
+    
+    # 9. Generate outfit descriptions
+    for outfit in outfits:
+        outfit["description"] = generate_outfit_description(outfit, clothing_tag.dict())
+    
+    # 10. Generate chat message about the clothing tags
+    tags_description = ", ".join(clothing_tag.other_tags)
+    base_message = f"You have requested an outfit with {clothing_tag.clothing_type} in {clothing_tag.color} {clothing_tag.material} and with descriptors such as \"{tags_description}\"."
+    
+    # Add outfit descriptions if outfits were created
+    if outfits:
+        outfit_descriptions = []
+        for i, outfit in enumerate(outfits):
+            desc = outfit["description"]
+            outfit_descriptions.append(f"Outfit {i+1}: {desc}")
+        
+        outfit_text = "\n\n" + "\n\n".join(outfit_descriptions)
+        chat_message = base_message + outfit_text
+    else:
+        chat_message = base_message + " Here are some individual items that match your style."
+    
+    # 11. Add to conversation history
+    user_message = {"role": "user", "content": user_prompt}
+    assistant_message = {
+        "role": "assistant", 
+        "content": chat_message,
+        "clothing_tag": clothing_tag.dict(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    updated_history = conversation_history + [user_message, assistant_message]
+    
+    # 12. Return response
+    return {
+        "clothing_tag": clothing_tag.dict(),
+        "outfit_items": outfit_items,
+        "categorized_items": categorized_items,
+        "outfits": outfits,
+        "chat_message": chat_message,
+        "conversation_history": updated_history
+    }
+
+@router.post("/chat-outfit-search-stream")
+async def chat_outfit_search_stream(
+    request: ChatOutfitRequest,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 10,
+    candidate_pool: int = 50
+) -> StreamingResponse:
+    """
+    Streaming version of chat outfit search.
+    Returns partial results as they become available.
+    """
+    async def sse_event_generator():
+        yield "data: {\"status\":\"processing\", \"message\":\"Analyzing your style request...\"}\n\n"
+        
+        # 1. Extract the user prompt and history
+        user_prompt = request.prompt
+        conversation_history = request.conversation_history or []
+        
+        # 2. Determine if this is a refinement or new request
+        is_refinement = len(conversation_history) > 0
+        
+        # 3. Generate clothing tag
+        try:
+            if is_refinement:
+                # Get the last generated clothing tag
+                last_tag = None
+                for message in reversed(conversation_history):
+                    if message.get("role") == "assistant" and message.get("clothing_tag"):
+                        last_tag = message["clothing_tag"]
+                        break
+                
+                # Convert prompt to ClothingTag with context from last tag
+                clothing_tag = await text_to_clothing_tag_with_context(
+                    prompt=user_prompt, 
+                    user=current_user, 
+                    previous_tag=last_tag,
+                    conversation_history=conversation_history
+                )
+            else:
+                # New request, generate fresh clothing tag
+                clothing_tag = await text_to_clothing_tag(user_prompt, current_user)
+                
+            # Send update about tag generation
+            yield f"data: {json.dumps({'status': 'tag_generated', 'clothing_tag': clothing_tag.dict()})}\n\n"
+            
+            # 4. Generate embeddings for the ClothingTag
+            tag_embeds = clothing_tag_to_embedding(clothing_tag)
+            
+            # 5. Build combined embedding
+            combined_embed = build_combined_embedding(
+                clothing_type_embed=tag_embeds.clothing_type_embed,
+                color_embed=tag_embeds.color_embed,
+                material_embed=tag_embeds.material_embed,
+                other_tags_embed=tag_embeds.other_tags_embed,
+                w_ctype=0.3,
+                w_color=0.2,
+                w_material=0.2,
+                w_others=0.3
+            )
+            
+            # Send update about starting search
+            yield "data: {\"status\":\"searching\", \"message\":\"Finding the perfect items for you...\"}\n\n"
+            
+            # 6. Search the catalogue
+            pipeline = [
+                {
+                    "$vectorSearch": {
+                        "index": "combined_embed_index",
+                        "path": "combined_embed",
+                        "queryVector": combined_embed,
+                        "limit": candidate_pool,
+                        "numCandidates": candidate_pool * 10
+                    }
+                },
+                {
+                    "$project": {
+                        "_id":1, "name":1, "category":1, "price":1, 
+                        "image_url":1, "product_url":1,
+                        "clothing_type":1, "color":1, "material":1,
+                        "other_tags":1, "score":{"$meta":"vectorSearchScore"},
+                        "cropped_image_url":1
+                    }
+                },
+                {"$sort": {"score": -1}},
+                {"$limit": top_k}
+            ]
+            
+            cursor = mongodb.catalogue.aggregate(pipeline)
+            items = list(cursor)
+            
+            # 7. Format response
+            outfit_items = [
+                {
+                    "id": str(doc["_id"]),
+                    "name": doc.get("name",""),
+                    "category": doc.get("category",""),
+                    "price": doc.get("price",""),
+                    "image_url": doc.get("image_url",""),
+                    "product_url": doc.get("product_url",""),
+                    "clothing_type": doc.get("clothing_type",""),
+                    "color": doc.get("color",""),
+                    "material": doc.get("material",""),
+                    "other_tags": doc.get("other_tags",[]),
+                    "score": doc["score"],
+                    "cropped_image_url": doc.get("cropped_image_url",""),
+                }
+                for doc in items
+            ]
+            
+            # Organize items by category and create outfits
+            categorized_items = organize_items_by_category(outfit_items)
+            outfits = create_outfits(categorized_items, max_outfits=3)
+            
+            # Add descriptions to outfits
+            for outfit in outfits:
+                outfit["description"] = generate_outfit_description(outfit, clothing_tag.dict())
+            
+            # 8. Generate chat message about the clothing tags
+            tags_description = ", ".join(clothing_tag.other_tags)
+            base_message = f"You have requested an outfit with {clothing_tag.clothing_type} in {clothing_tag.color} {clothing_tag.material} and with descriptors such as \"{tags_description}\"."
+            
+            # Add outfit descriptions if outfits were created
+            if outfits:
+                outfit_descriptions = []
+                for i, outfit in enumerate(outfits):
+                    desc = outfit["description"]
+                    outfit_descriptions.append(f"Outfit {i+1}: {desc}")
+                
+                outfit_text = "\n\n" + "\n\n".join(outfit_descriptions)
+                chat_message = base_message + outfit_text
+            else:
+                chat_message = base_message + " Here are some individual items that match your style."
+            
+            # 9. Add to conversation history
+            user_message = {"role": "user", "content": user_prompt}
+            assistant_message = {
+                "role": "assistant", 
+                "content": chat_message,
+                "clothing_tag": clothing_tag.dict(),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            updated_history = conversation_history + [user_message, assistant_message]
+            
+            # 10. Send final results
+            final_data = {
+                "status": "complete",
+                "clothing_tag": clothing_tag.dict(),
+                "outfit_items": outfit_items,
+                "outfits": outfits,
+                "categorized_items": categorized_items,
+                "chat_message": chat_message,
+                "conversation_history": updated_history
+            }
+            
+            yield f"data: {json.dumps(final_data)}\n\n"
+            
+        except Exception as e:
+            error_data = {
+                "status": "error",
+                "message": f"An error occurred: {str(e)}"
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        sse_event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+@router.post("/outfit-suggestions")
+async def get_outfit_suggestions(
+    clothing_tag_data: Dict,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 10,
+    candidate_pool: int = 50,
+    max_outfits: int = 3
+):
+    """
+    Generate outfit suggestions based on a clothing tag.
+    This route can be used to get new outfit suggestions without 
+    generating a new clothing tag.
+    """
+    try:
+        # 1. Create a ClothingTag from the provided data
+        clothing_tag = ClothingTag(**clothing_tag_data)
+        
+        # 2. Generate embeddings for the ClothingTag
+        tag_embeds = clothing_tag_to_embedding(clothing_tag)
+        
+        # 3. Build combined embedding
+        combined_embed = build_combined_embedding(
+            clothing_type_embed=tag_embeds.clothing_type_embed,
+            color_embed=tag_embeds.color_embed,
+            material_embed=tag_embeds.material_embed,
+            other_tags_embed=tag_embeds.other_tags_embed,
+            w_ctype=0.3,
+            w_color=0.2,
+            w_material=0.2,
+            w_others=0.3
+        )
+        
+        # 4. Search the catalogue
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "combined_embed_index",
+                    "path": "combined_embed",
+                    "queryVector": combined_embed,
+                    "limit": candidate_pool,
+                    "numCandidates": candidate_pool * 10
+                }
+            },
+            {
+                "$project": {
+                    "_id":1, "name":1, "category":1, "price":1, 
+                    "image_url":1, "product_url":1,
+                    "clothing_type":1, "color":1, "material":1,
+                    "other_tags":1, "score":{"$meta":"vectorSearchScore"},
+                    "cropped_image_url":1
+                }
+            },
+            {"$sort": {"score": -1}},
+            {"$limit": top_k}
+        ]
+        
+        cursor = mongodb.catalogue.aggregate(pipeline)
+        items = list(cursor)
+        
+        # 5. Format response
+        outfit_items = [
+            {
+                "id": str(doc["_id"]),
+                "name": doc.get("name",""),
+                "category": doc.get("category",""),
+                "price": doc.get("price",""),
+                "image_url": doc.get("image_url",""),
+                "product_url": doc.get("product_url",""),
+                "clothing_type": doc.get("clothing_type",""),
+                "color": doc.get("color",""),
+                "material": doc.get("material",""),
+                "other_tags": doc.get("other_tags",[]),
+                "score": doc["score"],
+                "cropped_image_url": doc.get("cropped_image_url",""),
+            }
+            for doc in items
+        ]
+        
+        # 6. Organize items by category and create outfits
+        categorized_items = organize_items_by_category(outfit_items)
+        outfits = create_outfits(categorized_items, max_outfits=max_outfits)
+        
+        # 7. Generate descriptions for each outfit
+        for outfit in outfits:
+            outfit["description"] = generate_outfit_description(outfit, clothing_tag.dict())
+        
+        return {
+            "clothing_tag": clothing_tag.dict(),
+            "outfit_items": outfit_items,
+            "categorized_items": categorized_items,
+            "outfits": outfits
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating outfit suggestions: {str(e)}")
+
+@router.post("/update-style-conversation")
+async def update_style_conversation(
+    request: ConversationUpdateRequest,
+    current_user: UserItem = Depends(get_current_user)
+):
+    """
+    Update or save a style conversation for future reference.
+    This allows users to save their styling sessions and feedback.
+    """
+    try:
+        # Create a new conversation entry if no ID is provided
+        if not request.conversation_id:
+            conversation_id = str(ObjectId())
+            conversation_data = {
+                "_id": ObjectId(conversation_id),
+                "user_id": current_user["_id"],
+                "conversation_history": request.conversation_history,
+                "user_feedback": request.user_feedback,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            result = mongodb.style_conversations.insert_one(conversation_data)
+            return {
+                "status": "success",
+                "message": "New conversation created",
+                "conversation_id": str(result.inserted_id)
+            }
+        else:
+            # Update existing conversation
+            conversation_id = request.conversation_id
+            
+            # Check if conversation exists and belongs to user
+            existing = mongodb.style_conversations.find_one({
+                "_id": ObjectId(conversation_id),
+                "user_id": current_user["_id"]
+            })
+            
+            if not existing:
+                raise HTTPException(status_code=404, detail="Conversation not found or access denied")
+            
+            # Update the conversation
+            mongodb.style_conversations.update_one(
+                {"_id": ObjectId(conversation_id)},
+                {
+                    "$set": {
+                        "conversation_history": request.conversation_history,
+                        "user_feedback": request.user_feedback,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            return {
+                "status": "success",
+                "message": "Conversation updated",
+                "conversation_id": conversation_id
+            }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating conversation: {str(e)}")
+
+
+@router.get("/style-conversations")
+async def get_style_conversations(
+    current_user: UserItem = Depends(get_current_user),
+    limit: int = 10,
+    skip: int = 0
+):
+    """
+    Get a user's previous style conversations.
+    """
+    try:
+        conversations = list(mongodb.style_conversations.find(
+            {"user_id": current_user["_id"]}
+        ).sort("updated_at", -1).skip(skip).limit(limit))
+        
+        # Convert ObjectId to string
+        for conv in conversations:
+            conv["_id"] = str(conv["_id"])
+            
+        total_count = mongodb.style_conversations.count_documents({"user_id": current_user["_id"]})
+        
+        return {
+            "conversations": conversations,
+            "total": total_count,
+            "limit": limit,
+            "skip": skip
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving conversations: {str(e)}")
+
+
+@router.get("/style-conversation/{conversation_id}")
+async def get_style_conversation(
+    conversation_id: str,
+    current_user: UserItem = Depends(get_current_user)
+):
+    """
+    Get a specific style conversation by ID.
+    """
+    try:
+        conversation = mongodb.style_conversations.find_one({
+            "_id": ObjectId(conversation_id),
+            "user_id": current_user["_id"]
+        })
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found or access denied")
+        
+        # Convert ObjectId to string
+        conversation["_id"] = str(conversation["_id"])
+        
+        return conversation
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving conversation: {str(e)}")
