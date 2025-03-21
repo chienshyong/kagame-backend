@@ -31,11 +31,32 @@ router = APIRouter()
 
 
 @router.get("/shop/items")
-def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False, limit: int = 0):
+def get_items_by_retailer(
+    retailer: str = None, 
+    include_embeddings: bool = False, 
+    limit: int = 0,
+    gender: str = None  # Added gender parameter
+):
     try:
         filter_criteria = {}
         if retailer:
             filter_criteria["retailer"] = retailer
+        
+        # Add gender filter if provided
+        if gender:
+            # Check if gender is valid
+            if gender not in ['M', 'F', 'U']:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid gender value. Must be 'M', 'F', or 'U'."
+                )
+            
+            # Filter by gender (if unisex is selected, include unisex items only)
+            # If M is selected, show M and U items, same for F
+            if gender == 'U':
+                filter_criteria["gender"] = 'U'
+            else:
+                filter_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
 
         projection = {
             "name": 1,
@@ -46,7 +67,8 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
             "clothing_type": 1,
             "color": 1,
             "material": 1,
-            "other_tags": 1
+            "other_tags": 1,
+            "gender": 1  # Ensure gender is included in response
         }
         if include_embeddings:
             projection["embedding"] = 1
@@ -67,7 +89,8 @@ def get_items_by_retailer(retailer: str = None, include_embeddings: bool = False
                 "clothing_type": item.get("clothing_type", ""),
                 "color": item.get("color", ""),
                 "material": item.get("material", ""),
-                "other_tags": item.get("other_tags", "")
+                "other_tags": item.get("other_tags", ""),
+                "gender": item.get("gender", "")  # Default to 'U' if not specified
             }
             if include_embeddings and "embedding" in item:
                 item_data["embedding"] = item["embedding"]
@@ -369,6 +392,7 @@ def get_recommendations_fast(
     current_user: UserItem = Depends(get_current_user),
     n: int = 25,
     category: Optional[str] = Query(None, description="Filter by category (e.g., 'Tops', 'Bottoms', 'Shoes')"),
+    gender: Optional[str] = Query(None, description="Filter by gender (M, F, or U)"),
     candidate_pool: int = 100
 ):
     """
@@ -377,6 +401,7 @@ def get_recommendations_fast(
     
     - n: Total number of recommendations to return
     - category: Optional category filter
+    - gender: Optional gender filter (M, F, or U)
     - candidate_pool: Size of initial vector search results (before filtering)
     """
     start_time = time.perf_counter()
@@ -443,6 +468,22 @@ def get_recommendations_fast(
     if category:
         filter_criteria["category"] = category
         
+    # Add gender filter if provided
+    if gender:
+        # Check if gender is valid
+        if gender not in ['M', 'F', 'U']:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid gender value. Must be 'M', 'F', or 'U'."
+            )
+        
+        # Filter by gender (if unisex is selected, include unisex items only)
+        # If M is selected, show M and U items, same for F
+        if gender == 'U':
+            filter_criteria["gender"] = 'U'
+        else:
+            filter_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
+    
     # 4) Perform a single vector search with the combined embedding
     search_start = time.perf_counter()
     
@@ -476,7 +517,8 @@ def get_recommendations_fast(
                 "material": 1,
                 "other_tags": 1,
                 "score": {"$meta": "vectorSearchScore"},
-                "cropped_image_url": 1
+                "cropped_image_url": 1,
+                "gender": 1  # Include gender in projection
             }
         },
         {"$sort": {"score": -1}},
@@ -504,7 +546,8 @@ def get_recommendations_fast(
             "material": item.get("material", ""),
             "other_tags": item.get("other_tags", ""),
             "score": item.get("score", 0),
-            "cropped_image_url": item.get("cropped_image_url", "")
+            "cropped_image_url": item.get("cropped_image_url", ""),
+            "gender": item.get("gender", "U")  # Include gender in the response
         }
         recommendations.append(item_data)
     
@@ -526,7 +569,6 @@ def get_recommendations_fast(
         "recommendations": recommendations,
         "total_items": len(recommendations)
     }
-
 class LooseRecommendedItem(BaseModel):
     reason: str
     name: str
@@ -1580,4 +1622,34 @@ def fast_item_outfit_search_with_style_stream(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
         }
+        )
+@router.get("/user/gender")
+async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
+    """
+    Returns the user's gender in a format suitable for filtering products.
+    Returns 'M' for Male, 'F' for Female, and null for "Prefer not to say".
+    """
+    try:
+        user_id = current_user["_id"]
+        user_doc = mongodb.users.find_one({"_id": user_id})
+        
+        if not user_doc or "userdefined_profile" not in user_doc:
+            return {"gender_code": None}
+        
+        user_gender = user_doc.get("userdefined_profile", {}).get("gender", "")
+        
+        # Map user-friendly gender values to API codes
+        gender_code = None
+        if user_gender == "Male":
+            gender_code = "M"
+        elif user_gender == "Female":
+            gender_code = "F"
+        # For "Prefer not to say" or any other value, keep as None
+        
+        return {"gender_code": gender_code}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching user gender: {str(e)}"
         )

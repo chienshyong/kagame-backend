@@ -24,7 +24,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Only initialize once
-cred = credentials.Certificate("secretstuff\kagame-432309-firebase-adminsdk-fbsvc-63bdbd6563.json")
+cred = credentials.Certificate("secretstuff/kagame-432309-firebase-adminsdk-fbsvc-63bdbd6563.json")
 initialize_app(cred)
 
 @router.post("/googlelogin")
