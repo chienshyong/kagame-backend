@@ -1,8 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 import services.mongodb as mongodb
-from pydantic import BaseModel
-from passlib.context import CryptContext
-import jwt
+from firebase_admin import auth, credentials, initialize_app
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from services.user import *
 router = APIRouter()
@@ -25,6 +23,34 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token(data={"username": form_data.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
+# Only initialize once
+cred = credentials.Certificate("secretstuff\kagame-432309-firebase-adminsdk-fbsvc-63bdbd6563.json")
+initialize_app(cred)
+
+@router.post("/googlelogin")
+async def login_with_google(request: Request):
+    data = await request.json()
+    id_token = data.get("id_token")
+
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        email = decoded_token.get("email") or decoded_token.get("uid")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+
+    # Optionally check if the user exists in MongoDB
+    user = mongodb.users.find_one({"username": email})
+    if not user:
+        # Create user or return error
+        user = {
+            "username": email,
+            "password": None,  # No password, since it's Google-authenticated
+        }
+        mongodb.users.insert_one(user)
+
+    # Issue JWT compatible with existing auth logic
+    token = create_access_token({"username": email})
+    return {"access_token": token, "token_type": "bearer"}
 
 # Example of a protected route. returns the user's username
 # Requires header 'Authorization' : 'Bearer <token>'

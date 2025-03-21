@@ -17,3 +17,4 @@ google-auth
 matplotlib
 openai
 onnxruntime
+firebase-admin
