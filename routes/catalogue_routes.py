@@ -1623,3 +1623,33 @@ def fast_item_outfit_search_with_style_stream(
             "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
         }
         )
+@router.get("/user/gender")
+async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
+    """
+    Returns the user's gender in a format suitable for filtering products.
+    Returns 'M' for Male, 'F' for Female, and null for "Prefer not to say".
+    """
+    try:
+        user_id = current_user["_id"]
+        user_doc = mongodb.users.find_one({"_id": user_id})
+        
+        if not user_doc or "userdefined_profile" not in user_doc:
+            return {"gender_code": None}
+        
+        user_gender = user_doc.get("userdefined_profile", {}).get("gender", "")
+        
+        # Map user-friendly gender values to API codes
+        gender_code = None
+        if user_gender == "Male":
+            gender_code = "M"
+        elif user_gender == "Female":
+            gender_code = "F"
+        # For "Prefer not to say" or any other value, keep as None
+        
+        return {"gender_code": gender_code}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching user gender: {str(e)}"
+        )
