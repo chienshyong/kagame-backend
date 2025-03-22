@@ -4,6 +4,7 @@ from secretstuff.secret import OPENAI_API_KEY, OPENAI_ORG_ID, OPENAI_PROJ_ID
 from services.mongodb import catalogue, tag_embeddings
 from services.metadata import get_catalogue_metadata
 from pydantic import BaseModel
+from bson import ObjectId
 import random
 import json
 
@@ -764,3 +765,62 @@ def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: 
     output_json = json.loads(output)
     clothing_item = ClothingTag(**output_json)
     return clothing_item
+
+
+#generating recommendations within the user's wardrobe
+def generate_embeddings(text_description):
+    response = openai_client.embeddings.create(
+    input=text_description,
+    model="text-embedding-3-large"
+    )
+    embedding_vector = response.data[0].embedding
+    return embedding_vector
+
+
+def complementary_categories(category:str) -> List[str]:
+    #category_labels = ["Tops", "Bottoms", "Dresses", "Shoes", "Jackets", "Accessories"]
+    category_map = {
+        "Tops":["Bottoms","Shoes","Jackets","Accessories"],
+        "Bottoms":["Tops","Shoes","Jackets","Accessories"],
+        "Dresses":["Shoes","Jackets","Accessories"],
+        "Jackets":["Tops","Shoes","Bottoms","Accessories"],
+        "Accessories":["Tops","Shoes","Bottoms","Jackets"],
+        "Bottoms":["Tops","Bottoms","Jackets","Accessories"],
+
+    }
+    return category_map[category]
+
+def complementary_wardrobe_item_vectorsearch_pipline(user_id: str, category, embedding: List[float], limit: int = 5):
+    """
+    Returns MongoDB Atlas Search aggregation pipeline for vector similarity search.
+    """
+    return [
+        {
+            "$search": {
+                "index": "wardrobe_vector_index",
+                "knnBeta": {
+                    "vector": embedding,
+                    "path": "embedding",
+                    "k": limit,
+                    "filter": {
+                        "compound": {
+                            "must": [
+                                { "equals": { "path": "user_id", "value": ObjectId(user_id) }},
+                                { "text": { "path": "category", "query": category }}
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "category": 1,
+                "tags": 1,
+                "image_name": 1,
+                "score": { "$meta": "searchScore" }
+            }
+        }
+    ]

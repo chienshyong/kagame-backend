@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest, get_user_feedback_recommendation
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest, get_user_feedback_recommendation, generate_embeddings, complementary_categories, complementary_wardrobe_item_vectorsearch_pipline
 
 router = APIRouter()
 
@@ -49,13 +49,17 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
     image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
     tags = generate_wardrobe_tags(image_url)
 
+    text_descriptor = f"{tags['name']}, {', '.join(tags['tags'])}".lower() #added embedding when an image is uploaded
+    embedding = generate_embeddings(text_descriptor)
+
     # Insert a document into the collection
     document = {
         "user_id": current_user['_id'],
         "name": tags['name'],
         "category": tags['category'],
         "tags": tags['tags'],
-        "image_name": image_name
+        "image_name": image_name,
+        "embedding": embedding
     }
     insert_result = mongodb.wardrobe.insert_one(document)
     res = tags
@@ -206,7 +210,6 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 @router.get("/wardrobe/userdefined_profile")
 async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
     profile = current_user["userdefined_profile"]
-
     if profile['gender'] == "Male":
         profile['gender'] = "M"
     else:
@@ -225,6 +228,7 @@ async def get_userdefined_profile(current_user: dict = Depends(get_current_user)
         #get just the dislike reason from the list and add it to another list with just the dislike reasons
         dislikes_list = []
         for item in dislikes:
+            print(item)
             dislikes_list.append(item[3])
 
         profile['clothing_dislikes'] = dislikes_list
@@ -254,3 +258,21 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+
+@router.post("/wardrobe/complementary_items")
+async def complementary_items(starting_id:str ,current_user: dict = Depends(get_current_user)):
+    starting_mongodb_object = mongodb.wardrobe.find_one({"_id": ObjectId(starting_id), "user_id": current_user['_id']})
+    if not starting_mongodb_object:
+        raise HTTPException(status_code=404, detail="Starting item not found")
+    
+    starting_category = starting_mongodb_object.get("category")
+    embedding = starting_mongodb_object.get("embedding")
+    user = ObjectId(current_user['_id'])
+    print(user)
+
+    return_categories = complementary_categories(starting_category)
+    results = []
+    for category in return_categories:
+        pipeline = complementary_wardrobe_item_vectorsearch_pipline(user,category,embedding)
+        results.append(list(mongodb.wardrobe.aggregate(pipeline)))
+    return results
