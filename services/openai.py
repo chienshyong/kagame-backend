@@ -790,26 +790,24 @@ def complementary_categories(category:str) -> List[str]:
     }
     return category_map[category]
 
-def complementary_wardrobe_item_vectorsearch_pipline(user_id: str, category, embedding: List[float], limit: int = 5):
+def complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding: List[float], n: int = 3):
     """
     Returns MongoDB Atlas Search aggregation pipeline for vector similarity search.
     """
     return [
         {
-            "$search": {
+            "$vectorSearch": {
+                # Index name must match what you created
                 "index": "wardrobe_vector_index",
-                "knnBeta": {
-                    "vector": embedding,
-                    "path": "embedding",
-                    "k": limit,
-                    "filter": {
-                        "compound": {
-                            "must": [
-                                { "equals": { "path": "user_id", "value": ObjectId(user_id) }},
-                                { "text": { "path": "category", "query": category }}
-                            ]
-                        }
-                    }
+                "path": "embedding",
+                "queryVector": embedding,
+                "numCandidates": n * 10,   # Oversample for better re-ranking
+                "limit": n * 2,
+                "filter": {
+                    "$and": [
+                        {"user_id": {"$eq": user}},
+                        {"category": {"$eq": category}}
+                    ]
                 }
             }
         },
@@ -820,7 +818,16 @@ def complementary_wardrobe_item_vectorsearch_pipline(user_id: str, category, emb
                 "category": 1,
                 "tags": 1,
                 "image_name": 1,
-                "score": { "$meta": "searchScore" }
+                # Show the vector similarity score
+                "score": {"$meta": "vectorSearchScore"}
             }
+        },
+        # If you want exactly n final results:
+        {
+            "$limit": n
         }
     ]
+
+def generate_wardrobe_outfit():
+
+    pass

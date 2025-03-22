@@ -260,19 +260,35 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     return rec
 
 @router.post("/wardrobe/complementary_items")
-async def complementary_items(starting_id:str ,current_user: dict = Depends(get_current_user)):
-    starting_mongodb_object = mongodb.wardrobe.find_one({"_id": ObjectId(starting_id), "user_id": current_user['_id']})
+async def complementary_items(starting_id: str, current_user: dict = Depends(get_current_user)):
+    # 1) Fetch the starting item
+    starting_mongodb_object = mongodb.wardrobe.find_one({
+        "_id": ObjectId(starting_id),
+        "user_id": current_user['_id']
+    })
     if not starting_mongodb_object:
         raise HTTPException(status_code=404, detail="Starting item not found")
-    
+
     starting_category = starting_mongodb_object.get("category")
     embedding = starting_mongodb_object.get("embedding")
     user = ObjectId(current_user['_id'])
-    print(user)
-
+    
+    # 2) Determine categories to search
     return_categories = complementary_categories(starting_category)
+
     results = []
     for category in return_categories:
-        pipeline = complementary_wardrobe_item_vectorsearch_pipline(user,category,embedding)
-        results.append(list(mongodb.wardrobe.aggregate(pipeline)))
+        pipeline = complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding)
+        docs = list(mongodb.wardrobe.aggregate(pipeline))
+        
+        # Convert all ObjectIds to strings
+        for doc in docs:
+            if "_id" in doc and isinstance(doc["_id"], ObjectId):
+                doc["_id"] = str(doc["_id"])
+            # If user_id is also present as an ObjectId, convert that too:
+            if "user_id" in doc and isinstance(doc["user_id"], ObjectId):
+                doc["user_id"] = str(doc["user_id"])
+        
+        results.append(docs)
+
     return results
