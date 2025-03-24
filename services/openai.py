@@ -828,7 +828,7 @@ def complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding: 
         }
     ]
 
-def generate_wardrobe_outfit(user_style:str, closest_items:list, starting_name:str, starting_cat:str):
+def generate_wardrobe_outfit(user_style:str, closest_items:list, starting_name:str, starting_cat:str,addn_prompt:str):
     candidate_tops = []
     candidate_bottoms = []
     candidate_dresses = []
@@ -863,7 +863,7 @@ def generate_wardrobe_outfit(user_style:str, closest_items:list, starting_name:s
         "content": [
             {
             "type": "text",
-            "text": f"Role: You are a fashion stylist tasked with creating a cohesive outfit from a set of clothes. This outfit must align with the user's style preference. The user's style preference is: {user_style}\n\nObjective: You will receive a starting item to build the outfit around along with a list of similarly styled items to choose from. These items will be divided by their category [\"Tops\", \"Bottoms\", \"Dresses\", \"Shoes\", \"Jackets\", \"Accessories\"]. You will receive a list of up to 3 items from each category.\n\nThe user input will be provided as follows:\n- starting item: category: \"category_name\", item: \"item_name\"\n- candidate clothes for each category\n\nYour goal is to select the name of exactly one item from each category (if that category exists in the input) to create a single cohesive outfit that aligns with the user’s style preference. Give the output in JSON."
+            "text": f"Role: You are a fashion stylist tasked with creating a cohesive outfit from a set of clothes. This outfit must align with the user's style preference. The user's style preference is: {user_style}\n\nObjective: You will receive a starting item to build the outfit around along with a list of similarly styled items to choose from. These items will be divided by their category [\"Tops\", \"Bottoms\", \"Dresses\", \"Shoes\", \"Jackets\", \"Accessories\"]. You will receive a list of up to 3 items from each category.\n\nThe user input will be provided as follows:\n- starting item: category: \"category_name\", item: \"item_name\"\n- candidate clothes for each category\n-Optionally an additional ocassion or styling prompt\n\nYour goal is to select the name of exactly one item from each category (if that category exists in the input) to create a single cohesive outfit that aligns with the user’s style preference and the additonal prompt(if any). Ignore the additional prompt if it is not related. Give the output in JSON."
             }
         ]
         },
@@ -872,7 +872,7 @@ def generate_wardrobe_outfit(user_style:str, closest_items:list, starting_name:s
          "content" :[
             {
             "type": "text",
-            "text": f"starting_item: {starting_name}, starting_category: {starting_cat}\nCandidate clothes:\nTops: {candidate_tops},Bottoms: {candidate_bottoms}, Dresses: {candidate_dresses}, Jackets: {candidate_jackets}, Shoes: {candidate_shoes}, Accessories: {candidate_accessories}"
+            "text": f"starting_item: {starting_name}, starting_category: {starting_cat}\nCandidate clothes:\nTops: {candidate_tops},Bottoms: {candidate_bottoms}, Dresses: {candidate_dresses}, Jackets: {candidate_jackets}, Shoes: {candidate_shoes}, Accessories: {candidate_accessories}\nAdditional Prompt: ```{addn_prompt}```"
             }
          ]  
         }

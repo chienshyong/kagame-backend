@@ -296,7 +296,7 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
     return results
 
 @router.get("/wardrobe/outfit_from_wardrobe")
-async def outfit_from_wardrobe(starting_id: str, current_user: dict = Depends(get_current_user)):
+async def outfit_from_wardrobe(starting_id: str, addn_prompt:str = "",current_user: dict = Depends(get_current_user)):
     #given the _id of a starting item to style ouftfit from wardrobe, get a list of dictionaries containing all the other items to complete the outfit
 
     """
@@ -332,7 +332,7 @@ async def outfit_from_wardrobe(starting_id: str, current_user: dict = Depends(ge
 
     user_style = current_user['userdefined_profile']['style']
 
-    outfit_ids = generate_wardrobe_outfit(user_style,closest_items,starting_name,starting_cat)
+    outfit_ids = generate_wardrobe_outfit(user_style,closest_items,starting_name,starting_cat,addn_prompt)
 
     outfit = []
     for _id in outfit_ids:
