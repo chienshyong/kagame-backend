@@ -6,7 +6,7 @@ from PIL import Image
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
-from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest, get_user_feedback_recommendation, generate_embeddings, complementary_categories, complementary_wardrobe_item_vectorsearch_pipline
+from services.openai import generate_wardrobe_tags, category_labels, WardrobeTag, get_wardrobe_recommendation, clothing_tag_to_embedding, get_n_closest, get_user_feedback_recommendation, generate_embeddings, complementary_categories, complementary_wardrobe_item_vectorsearch_pipline, generate_wardrobe_outfit
 
 router = APIRouter()
 
@@ -281,6 +281,7 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
         pipeline = complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding)
         docs = list(mongodb.wardrobe.aggregate(pipeline))
         
+        sub_list = []
         # Convert all ObjectIds to strings
         for doc in docs:
             if "_id" in doc and isinstance(doc["_id"], ObjectId):
@@ -288,7 +289,54 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
             # If user_id is also present as an ObjectId, convert that too:
             if "user_id" in doc and isinstance(doc["user_id"], ObjectId):
                 doc["user_id"] = str(doc["user_id"])
+            sub_list.append(doc)
         
-        results.append(docs)
+        results.append(sub_list)
 
     return results
+
+@router.get("/wardrobe/outfit_from_wardrobe")
+async def outfit_from_wardrobe(starting_id: str, current_user: dict = Depends(get_current_user)):
+    #given the _id of a starting item to style ouftfit from wardrobe, get a list of dictionaries containing all the other items to complete the outfit
+
+    """
+    EXAMPLE:
+    input: _id = "67dda1b467bf4ce7c6cfddef"
+
+    output:
+    [
+    {
+        "image_url": "https://storage.googleapis.com/kagame_bucket_1/a4124254-4df2-4aa5-b8ee-955cdeb76d72?Expires=1742835476&GoogleAccessId=default-621%40kagame-432309.iam.gserviceaccount.com&Signature=Be3yvKciDL6ogS3HSGEKNu6lpcoumf157LHyhXgzfxgeQEa91ojiNJ2XD7H6rI%2B2TU9QQ98ofaGiclOtm4r%2BQgbQ%2FoJ8%2FT7BVhvDsYAkLc971ZtqDwabtraA37iUyPvrcCuwpmWs8LNzCWIpavTJ0UJ%2Bc8e4dzB%2FLN9pRP8sxn%2B6KjV%2Bxpn917Ka05XYaxHLJ8slcpNLmg6RTCHHoTjTpCUukk%2FoN2krQo%2BwWbD8yJmaXO6uiurREY1tH4SkowHnb1%2Bv7e%2BqLeuncRehTvpt0WUSX%2FCK6rqgCRlGPJnv1Ebg55aeHJ1HXOF7aI5V769MyqI4KwrwaAhBO7bCiMFH1w%3D%3D",
+        "_id": "67deef3af058e477e4f32f32",
+        "name": "Comfortable Jogger Pants",
+        "category": "Bottoms",
+        "tags": [
+        "sporty, casual",
+        "casual",
+        "regular fit",
+        "green",
+        "cotton blend"
+        ]
+    }
+    ]
+    note: This would have more items in the list but the user wardrobe was small so you only see pants in this example
+
+    """
+
+
+    closest_items = await complementary_items(starting_id,current_user)
+    starting_item = await get_item(starting_id,current_user)
+
+    starting_name = starting_item['name']
+    starting_cat = starting_item['category']
+
+    user_style = current_user['userdefined_profile']['style']
+
+    outfit_ids = generate_wardrobe_outfit(user_style,closest_items,starting_name,starting_cat)
+
+    outfit = []
+    for _id in outfit_ids:
+        item = await get_item(_id,current_user)
+        outfit.append(item)
+
+    return outfit

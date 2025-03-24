@@ -828,6 +828,132 @@ def complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding: 
         }
     ]
 
-def generate_wardrobe_outfit():
+def generate_wardrobe_outfit(user_style:str, closest_items:list, starting_name:str, starting_cat:str):
+    candidate_tops = []
+    candidate_bottoms = []
+    candidate_dresses = []
+    candidate_dresses = []
+    candidate_jackets = []
+    candidate_shoes = []
+    candidate_accessories = []
 
-    pass
+    candidate_items_list = []
+    
+    for candidates in closest_items:
+        for candidate in candidates:
+            candidate_items_list.append(candidate)
+            if candidate["category"] == "Tops":
+                candidate_tops.append(candidate['name'])
+            elif candidate["category"] == "Bottoms":
+                candidate_bottoms.append(candidate['name'])
+            elif candidate["category"] == "Dresses":
+                candidate_dresses.append(candidate['name'])
+            elif candidate["category"] == "Jackets":
+                candidate_jackets.append(candidate['name'])
+            elif candidate["category"] == "Shoes":
+                candidate_shoes.append(candidate['name'])
+            elif candidate["category"] == "Accessories":
+                candidate_accessories.append(candidate['name'])
+    
+    response = openai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {
+        "role": "system",
+        "content": [
+            {
+            "type": "text",
+            "text": f"Role: You are a fashion stylist tasked with creating a cohesive outfit from a set of clothes. This outfit must align with the user's style preference. The user's style preference is: {user_style}\n\nObjective: You will receive a starting item to build the outfit around along with a list of similarly styled items to choose from. These items will be divided by their category [\"Tops\", \"Bottoms\", \"Dresses\", \"Shoes\", \"Jackets\", \"Accessories\"]. You will receive a list of up to 3 items from each category.\n\nThe user input will be provided as follows:\n- starting item: category: \"category_name\", item: \"item_name\"\n- candidate clothes for each category\n\nYour goal is to select the name of exactly one item from each category (if that category exists in the input) to create a single cohesive outfit that aligns with the user’s style preference. Give the output in JSON."
+            }
+        ]
+        },
+        {
+         "role":"user",
+         "content" :[
+            {
+            "type": "text",
+            "text": f"starting_item: {starting_name}, starting_category: {starting_cat}\nCandidate clothes:\nTops: {candidate_tops},Bottoms: {candidate_bottoms}, Dresses: {candidate_dresses}, Jackets: {candidate_jackets}, Shoes: {candidate_shoes}, Accessories: {candidate_accessories}"
+            }
+         ]  
+        }
+    ],
+    response_format={
+        "type": "text"
+    },
+    tools=[
+        {
+        "type": "function",
+        "function": {
+            "name": "generate_clothing_output",
+            "description": "Outputs selected clothing items for each of the categories, leave the description as empty string if there is no item to select.",
+            "parameters": {
+            "type": "object",
+            "required": [
+                "Tops",
+                "Bottoms",
+                "Dresses",
+                "Shoes",
+                "Jackets",
+                "Accessories"
+            ],
+            "properties": {
+                "Tops": {
+                "type": "string",
+                "description": "Name of the top clothing item"
+                },
+                "Bottoms": {
+                "type": "string",
+                "description": "Name of the bottom clothing item"
+                },
+                "Dresses": {
+                "type": "string",
+                "description": "Name of the dress"
+                },
+                "Shoes": {
+                "type": "string",
+                "description": "Name of the shoes"
+                },
+                "Jackets": {
+                "type": "string",
+                "description": "Name of the jacket"
+                },
+                "Accessories": {
+                "type": "string",
+                "description": "Name of the accessories"
+                }
+            },
+            "additionalProperties": False
+            },
+            "strict": True
+        }
+        }
+    ],
+    temperature=1,
+    max_completion_tokens=2048,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0,
+    store=False
+    )
+
+    output = response.choices[0].message.tool_calls[0].function.arguments
+    output_json = json.loads(output)
+
+    top, bottoms, dresses, shoes, jackets, accessories = output_json["Tops"],output_json["Bottoms"],output_json["Dresses"],output_json["Shoes"],output_json["Jackets"],output_json["Accessories"]
+
+    outfit_ids = []
+    for candidate in candidate_items_list:
+        if candidate['name'] == top:
+            outfit_ids.append(candidate['_id'])
+        elif candidate['name'] == bottoms:
+            outfit_ids.append(candidate['_id'])
+        elif candidate['name'] == dresses:
+            outfit_ids.append(candidate['_id'])
+        elif candidate['name'] == shoes:
+            outfit_ids.append(candidate['_id'])
+        elif candidate['name'] == jackets:
+            outfit_ids.append(candidate['_id'])
+        elif candidate['name'] == accessories:
+            outfit_ids.append(candidate['_id'])
+
+    return outfit_ids
