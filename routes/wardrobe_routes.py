@@ -212,13 +212,13 @@ async def get_userdefined_profile(current_user: dict = Depends(get_current_user)
     else:
         profile['gender'] = "F"
 
-    if profile['clothing_likes'] != None:
+    if profile['clothing_likes'] != {}:
         #just keeping the latest 5 entries and keeping the datatype as list
         profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
     else:
         profile['clothing_likes'] = []
     
-    if profile['clothing_dislikes'] != None:
+    if profile['clothing_dislikes'] != {}:
         #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
         dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
 
