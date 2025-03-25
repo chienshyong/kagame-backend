@@ -79,7 +79,7 @@ def calculate_dot_product(vector_name_in_mongodb: str, vector_we_have: list[int]
 
 
 def generate_wardrobe_tags(image_url: str) -> WardrobeTag:  # Generate tags from user uploaded image
-    prompt = f"Give a name description of this clothing item (5 words or less), choose category from {category_labels}, and tag with other descriptors as a list in this order [styles, ocassion, fit, color, material]. If there are multiple styles separate them by commas. Add the word 'fit' in the fit descriptor (e.g. regular fit). Give tags in all lowercase."
+    prompt = f"Give a name description of this clothing item (5 words or less) and include important styling features and colors in the name, choose category from {category_labels}, and tag with other descriptors as a list in this order [styles, ocassion, fit, color, material]. If there are multiple styles separate them by commas. Add the word 'fit' in the fit descriptor (e.g. regular fit). Give tags in all lowercase."
     output = openai_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
