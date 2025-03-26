@@ -1707,3 +1707,33 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+@router.post("/catalogue/track-click/{item_id}")
+async def track_product_click(item_id: str, current_user: UserItem = Depends(get_current_user)):
+    """
+    Tracks a click on a product. Increments the click_count field in MongoDB.
+    """
+    try:
+        try:
+            object_id = ObjectId(item_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid item ID format")
+        
+        # Update document with atomic increment of click_count
+        # If field doesn't exist yet, it will be created with value 1
+        result = mongodb.catalogue.update_one(
+            {"_id": object_id},
+            {"$inc": {"click_count": 1}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        return {"success": True, "message": "Click tracked successfully"}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error tracking product click: {str(e)}"
+        )
