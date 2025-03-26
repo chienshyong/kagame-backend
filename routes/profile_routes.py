@@ -71,6 +71,12 @@ async def update_user_profile(updated_profile: UserProfile,
     else:
         merged_profile = profile_data
 
+    if "clothing_dislikes" in merged_profile and "feedback" in merged_profile["clothing_dislikes"]:
+        for i, feedback_item in enumerate(merged_profile["clothing_dislikes"]["feedback"]):
+            merged_profile["clothing_dislikes"]["feedback"][i] = [
+                x if x is not None else "" for x in feedback_item
+            ]
+
     # Re-validate after adjusting values
     validated_profile = UserProfile(**merged_profile)
 
@@ -152,7 +158,6 @@ async def update_clothing_dislikes(updated_clothing_dislike: dict,
         userprofile = user.get("userdefined_profile", {})
         clothing_likes = userprofile.get("clothing_likes", {})
         clothing_dislikes = userprofile.get("clothing_dislikes", {})
-        print("AFTER GETTING")
 
         if 'feedback' in updated_clothing_dislike:
             if 'feedback' in clothing_dislikes:
@@ -161,7 +166,7 @@ async def update_clothing_dislikes(updated_clothing_dislike: dict,
                 clothing_dislikes["feedback"] = [updated_clothing_dislike['feedback']]
             updated_clothing_dislike.pop("feedback", None)
         
-        print(update_clothing_dislikes)
+        # print(update_clothing_dislikes)
 
         for item, is_disliked in updated_clothing_dislike.items():
             if is_disliked:  
@@ -183,3 +188,24 @@ async def update_clothing_dislikes(updated_clothing_dislike: dict,
     except Exception as e:
         print(f"Error updating clothing preferences (dislikes function): {e}")
         raise HTTPException(status_code=500, detail="Failed to update clothing preferences")
+    
+@router.post("/profile/stylequizresult")
+async def update_style_quiz_result(updated_style_quiz_result: dict, 
+                              current_user: dict = Depends(get_current_user)):
+    try:
+        user = mongodb.users.find_one({"_id": current_user["_id"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        mongodb.users.update_one(
+            {"_id": current_user["_id"]},
+            {"$set": {
+                "userdefined_profile.style": updated_style_quiz_result['style_result']
+            }}
+        )
+
+        return {"message": "Style quiz result updated successfully"}
+
+    except Exception as e:
+        print(f"Error updating style quiz result: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update style quiz result")
