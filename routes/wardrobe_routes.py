@@ -187,6 +187,7 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
     profile = await get_userdefined_profile(current_user)
 
     wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
+    print(wardrobe_tag)
     clothing_recommendations = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
 
     gender = profile['gender']
@@ -199,6 +200,9 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 
     for clothing_tag, category in clothing_recommendations:  # Unpack tuple (ClothingTag, category)
         clothing_tag_embedded = clothing_tag_to_embedding(clothing_tag)  # Pass only ClothingTag
+        
+        if category == "Jackets":
+            category = "Tops"
 
         # Retrieve the closest matching clothing item
         rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"]))[0]
