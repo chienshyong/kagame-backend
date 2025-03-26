@@ -187,7 +187,6 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
     profile = await get_userdefined_profile(current_user)
 
     wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
-    print(wardrobe_tag)
     clothing_recommendations = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
 
     gender = profile['gender']
