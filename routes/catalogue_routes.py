@@ -13,7 +13,8 @@ from services.openai import (
     get_all_catalogue_ids,
     WardrobeTag, 
     generate_base_catalogue_recommendation,
-    get_n_closest_no_other_tags
+    get_n_closest_no_other_tags,
+    get_user_feedback_recommendation
 )
 from bson import ObjectId
 from services.user import get_current_user
@@ -1653,3 +1654,56 @@ async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
             status_code=500,
             detail=f"An error occurred while fetching user gender: {str(e)}"
         )
+    
+@router.get("/catalogue/feedback_recommendation")
+async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason:str, current_user: dict = Depends(get_current_user)):
+    #previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
+
+    starting_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(starting_id)})
+    disliked_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(previous_rec_id)})
+
+    starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get("category"), tags=list(starting_mongodb_object.get("other_tags")))
+    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get("category"), tags=list(disliked_mongodb_object.get("other_tags")))
+
+    # formatting profile
+    profile = current_user["userdefined_profile"]
+
+    if profile['gender'] == "Male":
+        profile['gender'] = "M"
+    else:
+        profile['gender'] = "F"
+
+    if profile['clothing_likes'] != None:
+        if len(profile['clothing_likes'].keys())  < 5:
+            profile['clothing_likes'] = list(profile['clothing_likes'].keys())
+        #just keeping the latest 5 entries and keeping the datatype as list
+        if len(profile['clothing_likes']) >= 5:
+            profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
+    else:
+        profile['clothing_likes'] = []
+    
+    if profile['clothing_dislikes'] != None:
+        if len(profile['clothing_dislikes']) < 5:
+            dislikes = profile['clothing_dislikes']['feedback']
+        #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
+        if len(profile['clothing_dislikes']) >= 5:
+            dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
+
+        #get just the dislike reason from the list and add it to another list with just the dislike reasons
+        dislikes_list = []
+        for item in dislikes:
+            dislikes_list.append(item[3])
+
+        profile['clothing_dislikes'] = dislikes_list
+    
+    else:
+        profile['clothing_dislikes'] = []
+
+    recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
+
+    clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
+    rec = list(get_n_closest(clothing_tag_embedded,1))[0]
+    rec['_id'] = str(rec['_id'])
+
+    #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
+    return rec
