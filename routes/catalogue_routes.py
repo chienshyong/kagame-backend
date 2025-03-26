@@ -1428,11 +1428,13 @@ def fast_item_outfit_search_with_style_stream(
     item_id: str,
     current_user: UserItem = Depends(get_current_user),
     top_k: int = 10,
-    candidate_pool: int = 50
+    candidate_pool: int = 50,
+    gender: Optional[str] = Query(None, description="Filter by gender (M, F, or U)")
 ) -> StreamingResponse:
     """
     Example streaming version (SSE) of the outfit search. 
     Returns partial results for each style as soon as they're ready.
+    Optional gender filter can be applied to only show items appropriate for that gender.
     """
 
     def merge_vectors(vecA: List[float], vecB: List[float]) -> List[float]:
@@ -1552,13 +1554,32 @@ def fast_item_outfit_search_with_style_stream(
                 base_embed = base_obj["base_combined_embed"]
                 merged_embed = merge_vectors(base_embed, style_only_embed)
 
+                # Build filter criteria
+                filter_criteria = {"category": {"$ne": category}}
+                
+                # Add gender filter if provided
+                if gender:
+                    # Check if gender is valid
+                    if gender not in ['M', 'F', 'U']:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Invalid gender value. Must be 'M', 'F', or 'U'."
+                        )
+                    
+                    # If unisex is selected, include unisex items only
+                    # If M is selected, show M and U items, same for F
+                    if gender == 'U':
+                        filter_criteria["gender"] = 'U'
+                    else:
+                        filter_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
+
                 pipeline = [
                     {
                         "$vectorSearch": {
                             "index": "combined_embed_index",
                             "path": "combined_embed",
                             "queryVector": merged_embed,
-                            "filter": {"category": {"$ne": category}}, 
+                            "filter": filter_criteria, 
                             "limit": candidate_pool,
                             "numCandidates": candidate_pool * 10
                         }
@@ -1570,7 +1591,7 @@ def fast_item_outfit_search_with_style_stream(
                             "image_url":1, "product_url":1,
                             "clothing_type":1, "color":1, "material":1,
                             "other_tags":1, "score":{"$meta":"vectorSearchScore"},
-                            "cropped_image_url":1
+                            "cropped_image_url":1, "gender":1
                         }
                     },
                     {"$sort": {"score": -1}},
@@ -1595,6 +1616,7 @@ def fast_item_outfit_search_with_style_stream(
                             "other_tags": doc.get("other_tags",[]),
                             "score": doc["score"],
                             "cropped_image_url": doc.get("cropped_image_url",""),
+                            "gender": doc.get("gender", "U"),
                         }
                         for doc in top_items
                     ]
@@ -1623,7 +1645,7 @@ def fast_item_outfit_search_with_style_stream(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
         }
-        )
+    )
 @router.get("/user/gender")
 async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
     """
