@@ -2,7 +2,7 @@ from fastapi import HTTPException, APIRouter, Depends, File, UploadFile, status
 import services.mongodb as mongodb
 from services.mongodb import UserItem
 from services.user import get_current_user
-from PIL import Image
+from PIL import Image, ImageOps
 from io import BytesIO
 from services.image import store_blob, get_blob_url, DEFAULT_EXPIRY
 from bson import ObjectId
@@ -31,6 +31,7 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
         image = Image.open(BytesIO(contents))
         image.verify()  # Check if the file is an actual image
         image = Image.open(BytesIO(contents))  # Re-open to handle potential truncation issue
+        ImageOps.exif_transpose(image, in_place=True)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
