@@ -177,6 +177,11 @@ async def wardrobe_search(search_term=str, current_user: UserItem = Depends(get_
 async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
     # Given the id of a user's wardrobe item, generate an outfit. You can add ptional constraints
     result = mongodb.wardrobe.find_one({"_id": ObjectId(_id), "user_id": current_user['_id']})
+    user_object = mongodb.users.find_one({"_id":current_user['_id']})
+
+    exclude_list = []
+    if user_object.get('userdefined_profile')['clothing_dislikes'] != {}:
+        exclude_list = list(user_object.get('userdefined_profile')['clothing_dislikes'].keys())[1:]
 
     if result is None:
         raise HTTPException(
@@ -204,7 +209,7 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
             category = "Tops"
 
         # Retrieve the closest matching clothing item
-        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"]))[0]
+        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"],exlcude_names=exclude_list))[0]
         rec['_id'] = str(rec['_id'])  # Ensure _id is a string
 
         result.append(rec)  # Append the final result
