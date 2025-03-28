@@ -258,7 +258,6 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     exclude_list = []
     if user_obj.get('userdefined_profile')['clothing_dislikes'] != {}:
         exclude_list = list(user_obj.get('userdefined_profile')['clothing_dislikes'].keys())[1:]
-        print(exclude_list)
 
     recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
 
