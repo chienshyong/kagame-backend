@@ -185,7 +185,9 @@ def get_n_closest(
     n: int, 
     category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None,
     gender_requirements: List[Literal['M', 'F', 'U']] = None,
-    exclude_category: bool = False  # If True, filter excludes specified item from being returned in results
+    exclude_category: bool = False,  # If True, filter excludes specified item from being returned in results
+    exlcude_names: List[str] = None #optional filter to exclude certain items from being selected
+    
 ):    # If category_requirement is empty, don't use filters. Otherwise, clothing must be of the specified type.
     # Random bucketing disabled for now.
 
@@ -305,6 +307,9 @@ def get_n_closest(
             
     if gender_requirements is not None:
         temp_dict['gender'] = {'$in': gender_requirements}
+    
+    if exlcude_names:
+        temp_dict['name'] = {'$nin':exlcude_names}
         
     if len(temp_dict) > 0:
         pipeline[0]['$vectorSearch']['filter'] = temp_dict
@@ -445,8 +450,8 @@ def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: 
     # TODO need to figure out how to pass the outfit style of the starting item
     # TODO include additional prompts in the recommendation
 
-    outfit_style = starting_item.tags[:3]
-    # [styles, ocassion, fit, color, material] --> hardcoded order in generate_wardrobe_tags, we only use the first 3 to determine the outfit style
+    outfit_style = starting_item.tags[:4]
+    # [styles, ocassion, fit, color, material] --> hardcoded order in generate_wardrobe_tags, we only use the first 4 to determine the outfit style
 
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
