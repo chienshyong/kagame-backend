@@ -1704,9 +1704,15 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
     rec = list(get_n_closest(clothing_tag_embedded,1))[0]
     rec['_id'] = str(rec['_id'])
+    
+    if rec['_id'] == starting_id:
+        get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason, current_user)  
+    if rec['name'] in profile['clothing_dislikes']:
+        get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason, current_user)
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+
 @router.post("/catalogue/track-click/{item_id}")
 async def track_product_click(item_id: str, current_user: UserItem = Depends(get_current_user)):
     """
