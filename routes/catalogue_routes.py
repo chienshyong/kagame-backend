@@ -1690,6 +1690,8 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     # formatting profile
     profile = current_user["userdefined_profile"]
 
+    exclude_names = []
+
     if profile['gender'] == "Male":
         profile['gender'] = "M"
     else:
@@ -1705,6 +1707,7 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
         profile['clothing_likes'] = []
     
     if profile['clothing_dislikes'] != None:
+        exclude_names = list(profile['clothing_dislikes'].keys())[1:] #used to filter disliked items from the recommendation
         if len(profile['clothing_dislikes']) < 5:
             dislikes = profile['clothing_dislikes']['feedback']
         #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
@@ -1721,16 +1724,13 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     else:
         profile['clothing_dislikes'] = []
 
+    exclude_names.append(starting_mongodb_object.get('name'))
+
     recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
 
     clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
-    rec = list(get_n_closest(clothing_tag_embedded,1))[0]
+    rec = list(get_n_closest(clothing_tag_embedded,1,exlcude_names=exclude_names))[0]
     rec['_id'] = str(rec['_id'])
-    
-    if rec['_id'] == starting_id:
-        get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason, current_user)  
-    if rec['name'] in profile['clothing_dislikes']:
-        get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason, current_user)
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
