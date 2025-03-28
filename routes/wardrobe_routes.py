@@ -209,7 +209,7 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
             category = "Tops"
 
         # Retrieve the closest matching clothing item
-        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"],exlcude_names=exclude_list))[0]
+        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"],exlcude_names=[]))[0]
         rec['_id'] = str(rec['_id'])  # Ensure _id is a string
 
         result.append(rec)  # Append the final result
