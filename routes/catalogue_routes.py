@@ -1759,3 +1759,124 @@ async def track_product_click(item_id: str, current_user: UserItem = Depends(get
             status_code=500,
             detail=f"Error tracking product click: {str(e)}"
         )
+
+@router.get("/shop/text-search")
+async def text_search(
+    query: str, 
+    gender: Optional[str] = Query(None, description="Filter by gender (M, F, or U)"),
+    limit: int = Query(200, description="Maximum number of results to return"),
+    current_user: UserItem = Depends(get_current_user)
+):
+    """
+    Performs search on catalog items using MongoDB Atlas Search.
+    Returns items sorted by search score.
+    """
+    try:
+        # Create the pipeline for Atlas Search
+        pipeline = []
+        
+        # Only add $search stage if query is provided
+        if query and query.strip():
+            # Add Atlas Search stage
+            search_stage = {
+                "$search": {
+                    "index": "default",  # The Atlas Search index name
+                    "text": {
+                        "query": query,
+                        "path": {
+                            "wildcard": "*"  # Search in all indexed fields
+                        },
+                    }
+                }
+            }
+            pipeline.append(search_stage)
+            
+            # Add score metadata to results
+            pipeline.append({
+                "$addFields": {
+                    "score": {"$meta": "searchScore"}
+                }
+            })
+        
+        # Add gender filter if provided
+        match_criteria = {}
+        if gender:
+            if gender not in ['M', 'F', 'U']:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid gender value. Must be 'M', 'F', or 'U'."
+                )
+            
+            if gender == 'U':
+                # Only show unisex items
+                match_criteria["gender"] = 'U'
+            else:
+                # Show items that match gender OR are unisex
+                match_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
+        
+        # Add $match stage if we have gender or non-search case
+        if match_criteria or not query or not query.strip():
+            pipeline.append({"$match": match_criteria})
+        
+        # Project only the fields we need
+        pipeline.append({
+            "$project": {
+                "name": 1,
+                "category": 1,
+                "price": 1,
+                "image_url": 1,
+                "product_url": 1,
+                "clothing_type": 1,
+                "color": 1,
+                "material": 1,
+                "other_tags": 1,
+                "gender": 1,
+                "score": 1
+            }
+        })
+        
+        # Add sorting - by search score for search queries, or default sort for non-search
+        if query and query.strip():
+            pipeline.append({"$sort": {"score": -1}})
+        else:
+            # For non-search queries, sort by something reasonable like name
+            pipeline.append({"$sort": {"name": 1}})
+        
+        # Add limit
+        pipeline.append({"$limit": limit})
+        
+        # Execute the aggregation pipeline
+        cursor = mongodb.catalogue.aggregate(pipeline)
+        
+        # Process results
+        results = []
+        for item in cursor:
+            results.append({
+                "id": str(item["_id"]),
+                "name": item.get("name", ""),
+                "category": item.get("category", ""),
+                "price": item.get("price", ""),
+                "image_url": item.get("image_url", ""),
+                "product_url": item.get("product_url", ""),
+                "clothing_type": item.get("clothing_type", ""),
+                "color": item.get("color", ""),
+                "material": item.get("material", ""),
+                "other_tags": item.get("other_tags", []),
+                "gender": item.get("gender", "U"),
+                "score": item.get("score", 0) if query and query.strip() else None
+            })
+        
+        # Debug log the filter criteria and result count
+        print(f"Search query: '{query}'")
+        print(f"Gender filter: {gender}")
+        print(f"Match criteria: {match_criteria}")
+        print(f"Found {len(results)} results")
+        
+        return results
+    
+    except Exception as e:
+        print(f"Error in text_search: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error performing search: {str(e)}"
+        )
