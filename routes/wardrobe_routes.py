@@ -177,6 +177,11 @@ async def wardrobe_search(search_term=str, current_user: UserItem = Depends(get_
 async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
     # Given the id of a user's wardrobe item, generate an outfit. You can add ptional constraints
     result = mongodb.wardrobe.find_one({"_id": ObjectId(_id), "user_id": current_user['_id']})
+    user_object = mongodb.users.find_one({"_id":current_user['_id']})
+
+    exclude_list = []
+    if user_object.get('userdefined_profile')['clothing_dislikes'] != {}:
+        exclude_list = list(user_object.get('userdefined_profile')['clothing_dislikes'].keys())[1:]
 
     if result is None:
         raise HTTPException(
@@ -199,9 +204,12 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 
     for clothing_tag, category in clothing_recommendations:  # Unpack tuple (ClothingTag, category)
         clothing_tag_embedded = clothing_tag_to_embedding(clothing_tag)  # Pass only ClothingTag
+        
+        if category == "Jackets":
+            category = "Tops"
 
         # Retrieve the closest matching clothing item
-        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"]))[0]
+        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"],exlcude_names=exclude_list))[0]
         rec['_id'] = str(rec['_id'])  # Ensure _id is a string
 
         result.append(rec)  # Append the final result
@@ -245,16 +253,22 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
 
     starting_mongodb_object = mongodb.wardrobe.find_one({"_id": ObjectId(starting_id), "user_id": current_user['_id']})
     disliked_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(previous_rec_id)})
+    user_obj = mongodb.users.find_one({"_id":current_user['_id']})
 
     starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get("category"), tags=starting_mongodb_object.get("tags"))
     disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get("category"), tags=disliked_mongodb_object.get("other_tags"))
 
     profile = await get_userdefined_profile(current_user)
+    gender = profile['gender']
+
+    exclude_list = []
+    if user_obj.get('userdefined_profile')['clothing_dislikes'] != {}:
+        exclude_list = list(user_obj.get('userdefined_profile')['clothing_dislikes'].keys())[1:]
 
     recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
 
     clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
-    rec = list(get_n_closest(clothing_tag_embedded,1))[0]
+    rec = list(get_n_closest(clothing_tag_embedded,1,exlcude_names=exclude_list,gender_requirements=[gender,"U"]))[0]
     rec['_id'] = str(rec['_id'])
 
     #outputs the mongodb object for the clothing item from the catalogue as a dictionary.

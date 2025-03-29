@@ -185,7 +185,9 @@ def get_n_closest(
     n: int, 
     category_requirement: Optional[Literal['Tops', 'Bottoms', 'Shoes', 'Dresses']] = None,
     gender_requirements: List[Literal['M', 'F', 'U']] = None,
-    exclude_category: bool = False  # If True, filter excludes specified item from being returned in results
+    exclude_category: bool = False,  # If True, filter excludes specified item from being returned in results
+    exlcude_names: List[str] = None #optional filter to exclude certain items from being selected
+
 ):    # If category_requirement is empty, don't use filters. Otherwise, clothing must be of the specified type.
     # Random bucketing disabled for now.
 
@@ -305,6 +307,9 @@ def get_n_closest(
             
     if gender_requirements is not None:
         temp_dict['gender'] = {'$in': gender_requirements}
+    
+    if exlcude_names:
+        temp_dict['name'] = {'$nin':exlcude_names}
         
     if len(temp_dict) > 0:
         pipeline[0]['$vectorSearch']['filter'] = temp_dict
@@ -339,10 +344,8 @@ def get_wardrobe_recommendation(tag: WardrobeTag, profile: dict, additional_prom
                 "content": [
                     {
                     "type": "text",
-                    "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (top, bottom, shoes, layer) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags (category, comma separated styles, ocassion, fit, color, material), category ("Tops", "Bottoms", "Shoes", "Dresses") \n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
-                    User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['skin_tone']} skin, {profile['style']} style.
-                    Likes: {profile['clothing_likes']}.
-                    Likes: {profile['clothing_likes']}.
+                    "text": f"""You are a personal stylist, your task is to generate a complete outfit based off a starting item. You will be given a starting item as JSON input containing: name (description of item), category (Tops, Bottoms, Shoes, Dresses, Jackets, Accessories) and tags (style tags).\n\nA complete outfit:\n- Either (dress + shoes) \n- Or (one top + one bottom + shoes)\n- Optionally include one layering piece (e.g., jacket) if it matches the style and context.\n\nCreating an outfit:\n1.) analyse the style of the given item and additional context to select an outfit style. \n2.) based off the category of the item and the definition of an outfit, identify the other categories required to complete an outfit. You can only have 1 item from each category. There should be a maximum 3 unique categories in the output.\n3.)recommend clothing items in these categories that match the overall outfit style. Output the different items of the outfit in JSON with the tags: clothing_type (descriptor of the item) , color, material, and other_tags  [comma separated styles, ocassion, fit, color, material], category ("Tops", "Bottoms", "Shoes", "Dresses", "Jackets") \n\nCarefully consider the style of the input, the users preferences defined below and the additional context (if any) when choosing the overall style of the outfit. Take inspiration from user preferences but include some variation. Ensure only one item per category in the outfit. Do not include the starting item or the same category in the output. Ensure a complete outfit can be created with the recommended items.\n\n
+                    User Persona: {profile['age']}-year-old {profile['gender']} in {profile['location']}, {profile['style']} style.
                     Dislikes: {profile['clothing_dislikes']}.
                     """}
                 ]
@@ -446,8 +449,8 @@ def get_user_feedback_recommendation(starting_item: WardrobeTag, disliked_item: 
     # TODO need to figure out how to pass the outfit style of the starting item
     # TODO include additional prompts in the recommendation
 
-    outfit_style = starting_item.tags[:3]
-    # [styles, ocassion, fit, color, material] --> hardcoded order in generate_wardrobe_tags, we only use the first 3 to determine the outfit style
+    outfit_style = starting_item.tags[:4]
+    # [styles, ocassion, fit, color, material] --> hardcoded order in generate_wardrobe_tags, we only use the first 4 to determine the outfit style
 
     response = openai_client.chat.completions.create(
         model="gpt-4o-mini",

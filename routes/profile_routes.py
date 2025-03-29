@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, OrderedDict, Dict, Union, List
 from services.user import get_current_user
 from datetime import datetime, date
+import json
 
 router = APIRouter()
 
@@ -14,12 +15,7 @@ class UserProfile(BaseModel):
     gender: Optional[str] = None
     birthday: Optional[str] = None
     location: Optional[str] = None
-    height: Optional[str] = None
-    weight: Optional[str] = None
-    ethnicity: Optional[str] = None
-    skin_tone: Optional[str] = None
     style: Optional[str] = None
-    happiness_current_wardrobe: Optional[str] = None
     clothing_likes: Optional[OrderedDict[str, bool]] = {}
     clothing_dislikes: Optional[OrderedDict[str, Union[bool, List[List[str]]]]] = {}
 
@@ -114,6 +110,25 @@ async def get_clothing_prefs(current_user: UserItem = Depends(get_current_user))
 
     return {"clothing_likes": clothing_likes, "clothing_dislikes": clothing_dislikes}
 
+@router.get("/profile/getprefsurls")
+async def get_prefs_image_URLS(prefs_dict: str):
+    url_dict = {}
+    prefs_dict = json.loads(prefs_dict)
+    prefs_list = list(prefs_dict.keys())
+    try:
+        for name in prefs_list:
+            if name == "feedback":
+                continue
+            item = mongodb.catalogue.find_one({"name": name})
+            url_dict[name] = item["image_url"]
+
+        return url_dict
+
+    except Exception as e:
+        print(f"Error getting prefs URLs): {e}")
+        raise HTTPException(status_code=500, detail="Failed to get prefs image URLs")
+
+
 @router.post("/profile/updateclothinglikes", response_model=ClothingPreferenceUpdate)
 async def update_clothing_likes(updated_clothing_like: dict, 
                               current_user: dict = Depends(get_current_user)):
@@ -161,12 +176,12 @@ async def update_clothing_dislikes(updated_clothing_dislike: dict,
 
         if 'feedback' in updated_clothing_dislike:
             if 'feedback' in clothing_dislikes:
+                if len(clothing_dislikes["feedback"]) >= 100:
+                    del clothing_dislikes["feedback"][:95]
                 clothing_dislikes["feedback"].append(updated_clothing_dislike['feedback'])
             else:
                 clothing_dislikes["feedback"] = [updated_clothing_dislike['feedback']]
             updated_clothing_dislike.pop("feedback", None)
-        
-        # print(update_clothing_dislikes)
 
         for item, is_disliked in updated_clothing_dislike.items():
             if is_disliked:  
