@@ -2,12 +2,14 @@ from fastapi import Depends, HTTPException, status, APIRouter
 import services.mongodb as mongodb
 from services.mongodb import UserItem
 from pydantic import BaseModel
-from typing import Optional, OrderedDict, Dict, Union, List
+from typing import Optional, OrderedDict, Dict, Union, List, Tuple
 from services.user import get_current_user
 from datetime import datetime, date
 import json
 
 router = APIRouter()
+
+FeedbackItem = Tuple[str, str, str, Union[str, List[str]]]
 
 class UserProfile(BaseModel):
     # All fields as strings or None
@@ -17,7 +19,7 @@ class UserProfile(BaseModel):
     location: Optional[str] = None
     style: Optional[str] = None
     clothing_likes: Optional[OrderedDict[str, bool]] = {}
-    clothing_dislikes: Optional[OrderedDict[str, Union[bool, List[List[str]]]]] = {}
+    clothing_dislikes: Optional[OrderedDict[str, Union[List[FeedbackItem], bool]]] = {}
 
 class Preferences(BaseModel):
     clothing_likes: Optional[OrderedDict[str, bool]] = None
