@@ -112,22 +112,19 @@ async def get_clothing_prefs(current_user: UserItem = Depends(get_current_user))
 
     return {"clothing_likes": clothing_likes, "clothing_dislikes": clothing_dislikes}
 
-@router.get("/profile/getprefsurls")
-async def get_prefs_image_URLS(prefs_dict: str):
+@router.post("/profile/getprefsurls")
+async def get_prefs_image_URLS(prefs: dict):
     url_dict = {}
-    prefs_dict = json.loads(prefs_dict)
-    prefs_list = list(prefs_dict.keys())
+    prefs_list = list(prefs.keys())
     try:
         for name in prefs_list:
             if name == "feedback":
                 continue
             item = mongodb.catalogue.find_one({"name": name})
             url_dict[name] = item["image_url"]
-
         return url_dict
-
     except Exception as e:
-        print(f"Error getting prefs URLs): {e}")
+        print(f"Error getting prefs URLs: {e}")
         raise HTTPException(status_code=500, detail="Failed to get prefs image URLs")
 
 
