@@ -2,12 +2,14 @@ from fastapi import Depends, HTTPException, status, APIRouter
 import services.mongodb as mongodb
 from services.mongodb import UserItem
 from pydantic import BaseModel
-from typing import Optional, OrderedDict, Dict, Union, List
+from typing import Optional, OrderedDict, Dict, Union, List, Tuple
 from services.user import get_current_user
 from datetime import datetime, date
 import json
 
 router = APIRouter()
+
+FeedbackItem = Tuple[str, str, str, Union[str, List[str]]]
 
 class UserProfile(BaseModel):
     # All fields as strings or None
@@ -17,7 +19,7 @@ class UserProfile(BaseModel):
     location: Optional[str] = None
     style: Optional[str] = None
     clothing_likes: Optional[OrderedDict[str, bool]] = {}
-    clothing_dislikes: Optional[OrderedDict[str, Union[bool, List[List[str]]]]] = {}
+    clothing_dislikes: Optional[OrderedDict[str, Union[List[FeedbackItem], bool]]] = {}
 
 class Preferences(BaseModel):
     clothing_likes: Optional[OrderedDict[str, bool]] = None
@@ -110,22 +112,19 @@ async def get_clothing_prefs(current_user: UserItem = Depends(get_current_user))
 
     return {"clothing_likes": clothing_likes, "clothing_dislikes": clothing_dislikes}
 
-@router.get("/profile/getprefsurls")
-async def get_prefs_image_URLS(prefs_dict: str):
+@router.post("/profile/getprefsurls")
+async def get_prefs_image_URLS(prefs: dict):
     url_dict = {}
-    prefs_dict = json.loads(prefs_dict)
-    prefs_list = list(prefs_dict.keys())
+    prefs_list = list(prefs.keys())
     try:
         for name in prefs_list:
             if name == "feedback":
                 continue
             item = mongodb.catalogue.find_one({"name": name})
             url_dict[name] = item["image_url"]
-
         return url_dict
-
     except Exception as e:
-        print(f"Error getting prefs URLs): {e}")
+        print(f"Error getting prefs URLs: {e}")
         raise HTTPException(status_code=500, detail="Failed to get prefs image URLs")
 
 
