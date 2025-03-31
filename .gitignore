@@ -13,7 +13,7 @@ keys/*
 .vscode
 
 # mac
-.DS_Store
+*.DS_Store
 
 
 # Environments
@@ -24,4 +24,3 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.DS_Store
