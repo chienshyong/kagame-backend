@@ -55,7 +55,7 @@ async def login_with_google(request: Request):
 
 
 @router.delete("/deleteuser")
-async def delete_user(current_user: str = Depends(get_current_user)):
+async def delete_user(current_user: mongodb.UserItem = Depends(get_current_user)):
     user_result = mongodb.users.delete_one({"_id": current_user["_id"]})
     if user_result.deleted_count == 0:
         print(f"User {current_user['username']} with id {current_user['_id']} not deleted")
