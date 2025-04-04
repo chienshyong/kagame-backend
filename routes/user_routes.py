@@ -27,6 +27,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 cred = credentials.Certificate("secretstuff/kagame-432309-firebase-adminsdk-fbsvc-63bdbd6563.json")
 initialize_app(cred)
 
+
 @router.post("/googlelogin")
 async def login_with_google(request: Request):
     data = await request.json()
@@ -52,9 +53,15 @@ async def login_with_google(request: Request):
     token = create_access_token({"username": email})
     return {"access_token": token, "token_type": "bearer"}
 
-# Example of a protected route. returns the user's username
-# Requires header 'Authorization' : 'Bearer <token>'
-# TODO: Remove this route example is no longer needed.
-@router.get("/username")
-async def login(current_user: str = Depends(get_current_user)):
-    return {"username": current_user['username']}
+
+@router.delete("/deleteuser")
+async def delete_user(current_user: str = Depends(get_current_user)):
+    user_result = mongodb.users.delete_one({"_id": current_user["_id"]})
+    if user_result.deleted_count == 0:
+        print(f"User {current_user['username']} with id {current_user['_id']} not deleted")
+        raise HTTPException(status_code=400, detail="Deletion unsuccessful")
+
+    wardrobe_result = mongodb.wardrobe.delete_many({"user_id": current_user['_id']})
+    print(f"Successfully deleted {wardrobe_result.deleted_count} objects from wardrobe")
+
+    return {"msg": f"User deleted and {wardrobe_result.deleted_count} objects from wardrobe deleted"}
