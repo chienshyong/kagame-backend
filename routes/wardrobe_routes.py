@@ -50,7 +50,7 @@ async def create_item(file: UploadFile = File(...), current_user: UserItem = Dep
     image_url = get_blob_url(image_name, DEFAULT_EXPIRY)
     tags = generate_wardrobe_tags(image_url)
 
-    text_descriptor = f"{tags['name']}, {', '.join(tags['tags'])}".lower() #added embedding when an image is uploaded
+    text_descriptor = f"{tags['name']}, {', '.join(tags['tags'])}".lower()  # added embedding when an image is uploaded
     embedding = generate_embeddings(text_descriptor)
 
     # Insert a document into the collection
@@ -177,7 +177,7 @@ async def wardrobe_search(search_term=str, current_user: UserItem = Depends(get_
 async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current_user: UserItem = Depends(get_current_user)):
     # Given the id of a user's wardrobe item, generate an outfit. You can add ptional constraints
     result = mongodb.wardrobe.find_one({"_id": ObjectId(_id), "user_id": current_user['_id']})
-    user_object = mongodb.users.find_one({"_id":current_user['_id']})
+    user_object = mongodb.users.find_one({"_id": current_user['_id']})
 
     exclude_list = []
     if user_object.get('userdefined_profile')['clothing_dislikes'] != {}:
@@ -192,7 +192,8 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
     profile = await get_userdefined_profile(current_user)
 
     wardrobe_tag = WardrobeTag(name=result.get("name"), category=result.get("category"), tags=result.get("tags"))
-    clothing_recommendations = get_wardrobe_recommendation(wardrobe_tag, profile, additional_prompt) #added user persona
+    clothing_recommendations = get_wardrobe_recommendation(
+        wardrobe_tag, profile, additional_prompt)  # added user persona
 
     gender = profile['gender']
 
@@ -204,17 +205,19 @@ async def wardrobe_recommendation(_id: str, additional_prompt: str = "", current
 
     for clothing_tag, category in clothing_recommendations:  # Unpack tuple (ClothingTag, category)
         clothing_tag_embedded = clothing_tag_to_embedding(clothing_tag)  # Pass only ClothingTag
-        
+
         if category == "Jackets":
             category = "Tops"
 
         # Retrieve the closest matching clothing item
-        rec = list(get_n_closest(clothing_tag_embedded, 1,category_requirement=category, gender_requirements=[gender, "U"],exlcude_names=exclude_list))[0]
+        rec = list(get_n_closest(clothing_tag_embedded, 1, category_requirement=category,
+                   gender_requirements=[gender, "U"], exclude_names=exclude_list))[0]
         rec['_id'] = str(rec['_id'])  # Ensure _id is a string
 
         result.append(rec)  # Append the final result
 
     return result
+
 
 @router.get("/wardrobe/userdefined_profile")
 async def get_userdefined_profile(current_user: dict = Depends(get_current_user)):
@@ -226,37 +229,40 @@ async def get_userdefined_profile(current_user: dict = Depends(get_current_user)
         profile['gender'] = "F"
 
     if profile['clothing_likes'] != {}:
-        #just keeping the latest 5 entries and keeping the datatype as list
+        # just keeping the latest 5 entries and keeping the datatype as list
         profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
     else:
         profile['clothing_likes'] = []
-    
+
     if profile['clothing_dislikes'] != {}:
-        #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
+        # get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
         dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
 
-        #get just the dislike reason from the list and add it to another list with just the dislike reasons
+        # get just the dislike reason from the list and add it to another list with just the dislike reasons
         dislikes_list = []
         for item in dislikes:
             dislikes_list.append(item[3])
 
         profile['clothing_dislikes'] = dislikes_list
-    
+
     else:
         profile['clothing_dislikes'] = []
 
     return profile
 
+
 @router.get("/wardrobe/feedback_recommendation")
-async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason:str, current_user: dict = Depends(get_current_user)):
-    #previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
+async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason: str, current_user: dict = Depends(get_current_user)):
+    # previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
 
     starting_mongodb_object = mongodb.wardrobe.find_one({"_id": ObjectId(starting_id), "user_id": current_user['_id']})
     disliked_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(previous_rec_id)})
-    user_obj = mongodb.users.find_one({"_id":current_user['_id']})
+    user_obj = mongodb.users.find_one({"_id": current_user['_id']})
 
-    starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get("category"), tags=starting_mongodb_object.get("tags"))
-    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get("category"), tags=disliked_mongodb_object.get("other_tags"))
+    starting_item = WardrobeTag(name=starting_mongodb_object.get(
+        "name"), category=starting_mongodb_object.get("category"), tags=starting_mongodb_object.get("tags"))
+    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get(
+        "category"), tags=disliked_mongodb_object.get("other_tags"))
 
     profile = await get_userdefined_profile(current_user)
     gender = profile['gender']
@@ -268,11 +274,14 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
 
     clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
-    rec = list(get_n_closest(clothing_tag_embedded,1,exlcude_names=exclude_list,gender_requirements=[gender,"U"]))[0]
+    rec = list(get_n_closest(clothing_tag_embedded, 1,
+               exclude_names=exclude_list, gender_requirements=[gender, "U"]))[0]
     rec['_id'] = str(rec['_id'])
 
-    #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
+    # outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+
+
 @router.post("/wardrobe/regenerate_tags")
 async def regenerate_wardrobe_tags(current_user: UserItem = Depends(get_current_user), all_users: bool = False):
     """
@@ -285,18 +294,18 @@ async def regenerate_wardrobe_tags(current_user: UserItem = Depends(get_current_
         user_ids = [user["_id"] for user in users]
     else:
         user_ids = [current_user['_id']]
-    
+
     updated_items = []
     failed_items = []
-    
+
     for user_id in user_ids:
         items = mongodb.wardrobe.find({"user_id": user_id})
-        
+
         for item in items:
             try:
                 image_url = get_blob_url(item["image_name"], DEFAULT_EXPIRY)
                 new_tags = generate_wardrobe_tags(image_url)
-                
+
                 update_query = {
                     "$set": {
                         "name": new_tags['name'],
@@ -304,7 +313,7 @@ async def regenerate_wardrobe_tags(current_user: UserItem = Depends(get_current_
                         "tags": new_tags['tags']
                     }
                 }
-                
+
                 mongodb.wardrobe.update_one({"_id": item["_id"]}, update_query)
                 updated_items.append({
                     "_id": str(item["_id"]),
@@ -319,12 +328,13 @@ async def regenerate_wardrobe_tags(current_user: UserItem = Depends(get_current_
                     "user_id": str(user_id),
                     "error": str(e)
                 })
-    
+
     return {
         "message": "Wardrobe tags regeneration completed with some skips.",
         "updated_items": updated_items,
         "failed_items": failed_items
     }
+
 
 @router.post("/wardrobe/complementary_items")
 async def complementary_items(starting_id: str, current_user: dict = Depends(get_current_user)):
@@ -339,7 +349,7 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
     starting_category = starting_mongodb_object.get("category")
     embedding = starting_mongodb_object.get("embedding")
     user = ObjectId(current_user['_id'])
-    
+
     # 2) Determine categories to search
     return_categories = complementary_categories(starting_category)
 
@@ -347,7 +357,7 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
     for category in return_categories:
         pipeline = complementary_wardrobe_item_vectorsearch_pipline(user, category, embedding)
         docs = list(mongodb.wardrobe.aggregate(pipeline))
-        
+
         sub_list = []
         # Convert all ObjectIds to strings
         for doc in docs:
@@ -357,15 +367,15 @@ async def complementary_items(starting_id: str, current_user: dict = Depends(get
             if "user_id" in doc and isinstance(doc["user_id"], ObjectId):
                 doc["user_id"] = str(doc["user_id"])
             sub_list.append(doc)
-        
+
         results.append(sub_list)
 
     return results
 
-@router.get("/wardrobe/outfit_from_wardrobe")
-async def outfit_from_wardrobe(starting_id: str, addn_prompt:str = "",current_user: dict = Depends(get_current_user)):
-    #given the _id of a starting item to style ouftfit from wardrobe, get a list of dictionaries containing all the other items to complete the outfit
 
+@router.get("/wardrobe/outfit_from_wardrobe")
+async def outfit_from_wardrobe(starting_id: str, addn_prompt: str = "", current_user: dict = Depends(get_current_user)):
+    # given the _id of a starting item to style ouftfit from wardrobe, get a list of dictionaries containing all the other items to complete the outfit
     """
     EXAMPLE:
     input: _id = "67dda1b467bf4ce7c6cfddef"
@@ -390,20 +400,19 @@ async def outfit_from_wardrobe(starting_id: str, addn_prompt:str = "",current_us
 
     """
 
-
-    closest_items = await complementary_items(starting_id,current_user)
-    starting_item = await get_item(starting_id,current_user)
+    closest_items = await complementary_items(starting_id, current_user)
+    starting_item = await get_item(starting_id, current_user)
 
     starting_name = starting_item['name']
     starting_cat = starting_item['category']
 
     user_style = current_user['userdefined_profile']['style']
 
-    outfit_ids = generate_wardrobe_outfit(user_style,closest_items,starting_name,starting_cat,addn_prompt)
+    outfit_ids = generate_wardrobe_outfit(user_style, closest_items, starting_name, starting_cat, addn_prompt)
 
     outfit = []
     for _id in outfit_ids:
-        item = await get_item(_id,current_user)
+        item = await get_item(_id, current_user)
         outfit.append(item)
 
     return outfit

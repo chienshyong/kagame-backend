@@ -11,7 +11,7 @@ from services.openai import (
     StyleAnalysisResponse,
     compile_tags_and_embeddings_for_item,
     get_all_catalogue_ids,
-    WardrobeTag, 
+    WardrobeTag,
     generate_base_catalogue_recommendation,
     get_n_closest_no_other_tags,
     get_user_feedback_recommendation
@@ -33,8 +33,8 @@ router = APIRouter()
 
 @router.get("/shop/items")
 def get_items_by_retailer(
-    retailer: str = None, 
-    include_embeddings: bool = False, 
+    retailer: str = None,
+    include_embeddings: bool = False,
     limit: int = 0,
     gender: str = None  # Added gender parameter
 ):
@@ -42,7 +42,7 @@ def get_items_by_retailer(
         filter_criteria = {}
         if retailer:
             filter_criteria["retailer"] = retailer
-        
+
         # Add gender filter if provided
         if gender:
             # Check if gender is valid
@@ -51,7 +51,7 @@ def get_items_by_retailer(
                     status_code=400,
                     detail="Invalid gender value. Must be 'M', 'F', or 'U'."
                 )
-            
+
             # Filter by gender (if unisex is selected, include unisex items only)
             # If M is selected, show M and U items, same for F
             if gender == 'U':
@@ -106,8 +106,9 @@ def get_items_by_retailer(
             detail=f"An error occurred while fetching items: {str(e)}"
         )
 
+
 @router.get("/shop/similar_items")
-def get_similar_items(id: str, n: int = 5):
+def get_similar_items(id: str, n: int = 5, current_user: UserItem = Depends(get_current_user)):
     try:
         # Convert string ID to ObjectId
         try:
@@ -130,7 +131,16 @@ def get_similar_items(id: str, n: int = 5):
             other_tags_embed=product.get('other_tags_embed')
         )
 
-        recs = list(get_n_closest_no_other_tags(tag_embed, n + 1))
+        gender_requirement = ['U', 'F', 'M']
+
+        if "userdefined_profile" in current_user and "gender" in current_user["userdefined_profile"]:
+            user_gender = current_user["userdefined_profile"]["gender"]
+            if user_gender == 'Female':
+                gender_requirement.remove('M')
+            elif user_gender == 'Male':
+                gender_requirement.remove('F')
+
+        recs = list(get_n_closest(tag_embed, n + 1, gender_requirements=gender_requirement))
 
         response = []
         for rec in recs:
@@ -164,6 +174,7 @@ def get_similar_items(id: str, n: int = 5):
             detail=f"An error occurred while fetching similar items: {str(e)}"
         )
 
+
 # ------------------------------------------
 # Initialize the OpenAI client
 # ------------------------------------------
@@ -176,6 +187,8 @@ openai_client = OpenAI(
 # ------------------------------------------
 # Response models
 # ------------------------------------------
+
+
 class StyleSuggestion(BaseModel):
     style: str
     description: str
@@ -184,6 +197,7 @@ class StyleSuggestion(BaseModel):
 
 class StyleAnalysisResponse(BaseModel):
     top_styles: List[StyleSuggestion]
+
 
 class User(BaseModel):
     username: str
@@ -193,13 +207,17 @@ class User(BaseModel):
 # --------------------------
 # Response Models
 # --------------------------
+
+
 class StyleSuggestion(BaseModel):
     style: str
     description: str
     reasoning: str
 
+
 class StyleAnalysisResponse(BaseModel):
     top_styles: List[StyleSuggestion]
+
 
 class User(BaseModel):
     username: str
@@ -264,6 +282,7 @@ def run_style_analysis_logic(user_id: ObjectId) -> StyleAnalysisResponse:
 # Endpoint: GET /user/style-analysis
 # --------------------------
 
+
 @router.get("/user/style-analysis")
 async def get_style_analysis(current_user: UserItem = Depends(get_current_user)):
     """
@@ -290,15 +309,15 @@ async def check_style_analysis(current_user: UserItem = Depends(get_current_user
     """
     try:
         user_id = current_user["_id"]
-        
+
         # 1) Count how many items are in the user's wardrobe
-        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})        
+        total_count = mongodb.wardrobe.count_documents({"user_id": user_id})
         # 2) Fetch the user's document and check last_analysis_count
         user_doc = mongodb.users.find_one({"_id": user_id})
         if not user_doc:
             raise HTTPException(status_code=404, detail="User not found.")
-        
-        last_analysis_count = user_doc.get("last_analysis_count", 0)        
+
+        last_analysis_count = user_doc.get("last_analysis_count", 0)
         # 3) Decide if we need to run style analysis
         #    Condition: user added >=5 items since last analysis, or no prior analysis
         if (total_count - last_analysis_count >= 5) or (last_analysis_count == 0):
@@ -327,13 +346,14 @@ async def check_style_analysis(current_user: UserItem = Depends(get_current_user
                 }
             )
             return {"message": "Style analysis performed. Recommendations updated."}
-        
+
         # If we did not trigger new analysis
         return {"message": "No style analysis triggered. Not enough new items."}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.get("/shop/recommendations")
 def get_recommendations(current_user: UserItem = Depends(get_current_user), n: int = 25):
     user_id = current_user["_id"]
@@ -367,7 +387,7 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
             rec_id_str = str(rec["_id"])
             if rec_id_str in item_ids:
                 continue
-            
+
             item_ids.add(rec_id_str)
             item_data = {
                 "id": rec_id_str,
@@ -388,6 +408,8 @@ def get_recommendations(current_user: UserItem = Depends(get_current_user), n: i
         if len(recommendations) >= n:
             break
     return recommendations
+
+
 @router.get("/shop/recommendations-fast")
 def get_recommendations_fast(
     current_user: UserItem = Depends(get_current_user),
@@ -399,7 +421,7 @@ def get_recommendations_fast(
     """
     Returns style-based recommendations using a single, combined embedding vector
     created by merging all the user's style preferences together.
-    
+
     - n: Total number of recommendations to return
     - category: Optional category filter
     - gender: Optional gender filter (M, F, or U)
@@ -407,68 +429,68 @@ def get_recommendations_fast(
     """
     start_time = time.perf_counter()
     timings = {}
-    
+
     # 1) Fetch user's style recommendations
     user_fetch_start = time.perf_counter()
     user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
     if not user_doc:
         raise HTTPException(status_code=404, detail="User not found.")
-    
+
     style_recs = user_doc.get("style_recommendations", [])
     if not style_recs:
         raise HTTPException(status_code=400, detail="No style recommendations found for this user.")
     timings["fetch_user"] = time.perf_counter() - user_fetch_start
-    
+
     # 2) Extract all style names and combine all style embeddings
     style_names = []
     combined_vector = None
     vector_dim = None
-    
+
     # First, determine the embedding dimension
     combine_start = time.perf_counter()
     for style_rec in style_recs:
         style_names.append(style_rec.get("style_name", "Unknown Style"))
-        
+
         # Extract other_tags_embed (this is what we want to combine)
         embed_dict = style_rec.get("tag_embed", {})
         other_tags_embed = embed_dict.get("other_tags_embed", [])
-        
+
         # If we find a non-empty embedding, get its dimension
         if other_tags_embed and not vector_dim:
             vector_dim = len(other_tags_embed[0]) if other_tags_embed else 0
-    
+
     # If we couldn't determine the dimension, return an error
     if not vector_dim:
         raise HTTPException(status_code=500, detail="Could not determine embedding dimension")
-    
+
     # Initialize a zero vector with the correct dimension
     combined_vector = [0.0] * vector_dim
-    
+
     # Now combine all embeddings by summing them together
     for style_rec in style_recs:
         embed_dict = style_rec.get("tag_embed", {})
         other_tags_embed = embed_dict.get("other_tags_embed", [])
-        
+
         if other_tags_embed:
             # Sum all vectors in other_tags_embed
             for vec in other_tags_embed:
                 for i in range(vector_dim):
                     combined_vector[i] += vec[i]
-    
+
     # Normalize the combined vector to maintain consistent magnitudes
     # Skip if the vector is all zeros
     if any(combined_vector):
         magnitude = sum(x**2 for x in combined_vector) ** 0.5
         if magnitude > 0:
             combined_vector = [x/magnitude for x in combined_vector]
-    
+
     timings["combine_embeddings"] = time.perf_counter() - combine_start
-            
+
     # 3) Build filter criteria
     filter_criteria = {}
     if category:
         filter_criteria["category"] = category
-        
+
     # Add gender filter if provided
     if gender:
         # Check if gender is valid
@@ -477,17 +499,17 @@ def get_recommendations_fast(
                 status_code=400,
                 detail="Invalid gender value. Must be 'M', 'F', or 'U'."
             )
-        
+
         # Filter by gender (if unisex is selected, include unisex items only)
         # If M is selected, show M and U items, same for F
         if gender == 'U':
             filter_criteria["gender"] = 'U'
         else:
             filter_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
-    
+
     # 4) Perform a single vector search with the combined embedding
     search_start = time.perf_counter()
-    
+
     # Build the vector search pipeline - only include filter if we have criteria
     vector_search_params = {
         "index": "combined_embed_index",
@@ -496,11 +518,11 @@ def get_recommendations_fast(
         "limit": candidate_pool,
         "numCandidates": candidate_pool * 10
     }
-    
+
     # Only add filter if we have filter criteria
     if filter_criteria:
         vector_search_params["filter"] = filter_criteria
-    
+
     pipeline = [
         {
             "$vectorSearch": vector_search_params
@@ -525,15 +547,15 @@ def get_recommendations_fast(
         {"$sort": {"score": -1}},
         {"$limit": n}
     ]
-    
+
     cursor = mongodb.catalogue.aggregate(pipeline)
     search_results = list(cursor)
     timings["search_combined"] = time.perf_counter() - search_start
-    
+
     # 5) Process results and shuffle
     process_start = time.perf_counter()
     recommendations = []
-    
+
     for item in search_results:
         item_data = {
             "id": str(item["_id"]),
@@ -551,25 +573,27 @@ def get_recommendations_fast(
             "gender": item.get("gender", "U")  # Include gender in the response
         }
         recommendations.append(item_data)
-    
+
     # Shuffle recommendations for variety
     import random
     random.shuffle(recommendations)
-    
+
     timings["process_results"] = time.perf_counter() - process_start
-    
+
     # Log performance metrics
     total_time = time.perf_counter() - start_time
     print(f"===== Fast Recommendations Performance =====")
     print(f"Total time: {total_time:.4f} seconds")
     for step, elapsed in timings.items():
         print(f"  {step}: {elapsed:.4f} seconds")
-    
+
     return {
         "styles": style_names,
         "recommendations": recommendations,
         "total_items": len(recommendations)
     }
+
+
 class LooseRecommendedItem(BaseModel):
     reason: str
     name: str
@@ -579,14 +603,17 @@ class LooseRecommendedItem(BaseModel):
     category: str
     clothing_type: str
 
+
 class LooseOutfitRecommendation(BaseModel):
     style: str
     description: str
     name: str
     items: List[LooseRecommendedItem]
 
+
 class LooseStylingLLMResponse(BaseModel):
     outfits: List[LooseOutfitRecommendation]
+
 
 class RecommendedItemInput(BaseModel):
     name: str
@@ -597,21 +624,26 @@ class RecommendedItemInput(BaseModel):
     category: str
     clothing_type: str
 
+
 class OutfitInput(BaseModel):
     style: str
     description: str
     name: str
     items: List[RecommendedItemInput]
 
+
 class OutfitSearchRequest(BaseModel):
     outfits: List[OutfitInput]
+
 
 class CatalogItem(BaseModel):
     id: str
 
+
 class OutfitSearchMatchedItem(BaseModel):
     original: RecommendedItemInput
     match: CatalogItem
+
 
 class OutfitSearchResult(BaseModel):
     style: str
@@ -619,8 +651,10 @@ class OutfitSearchResult(BaseModel):
     name: str
     items: List[OutfitSearchMatchedItem]
 
+
 class OutfitSearchResponse(BaseModel):
     outfits: List[OutfitSearchResult]
+
 
 def ensure_list(value) -> List[str]:
     if isinstance(value, list):
@@ -629,6 +663,7 @@ def ensure_list(value) -> List[str]:
         return [value]
     else:
         return []
+
 
 @router.get("/shop/item-outfit-search")
 def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_current_user)) -> OutfitSearchResponse:
@@ -777,6 +812,7 @@ def item_outfit_search(item_id: str, current_user: UserItem = Depends(get_curren
         )
 
     return OutfitSearchResponse(outfits=final_outfits)
+
 
 @router.get("/shop/item/{item_id}")
 def get_item_by_id(item_id: str):
@@ -999,7 +1035,7 @@ def update_tags_for_one_item(item_id: str):
 def store_combined_embedding_for_item(item_id: ObjectId):
     """
     Loads an item, computes a 'combined_embed', and updates the doc.
-    
+
     Assumes the item already has these fields:
       - clothing_type_embed
       - color_embed
@@ -1031,7 +1067,7 @@ def store_combined_embedding_for_item(item_id: ObjectId):
 # @router.post("/catalogue/update-combined-embeds-all")
 # def update_combined_embeddings_for_all():
 #     """
-#     Iterates over every item in the 'catalogue' collection, 
+#     Iterates over every item in the 'catalogue' collection,
 #     computes its combined_embed, and updates the item.
 #     Returns how many items were processed.
 #     """
@@ -1046,6 +1082,7 @@ def store_combined_embedding_for_item(item_id: ObjectId):
 #         count += 1
 
 #     return {"message": f"Processed {count} items, updated combined_embed on each."}
+
 
 def build_combined_embedding(
     clothing_type_embed: List[float],
@@ -1101,6 +1138,7 @@ def build_combined_embedding(
                        combined_others[i])
     return combined
 
+
 def build_other_tags_only_embedding(other_tags_embed: List[List[float]], dim: int, w_others: float = 0.2) -> List[float]:
     """
     Builds an embedding using only the other_tags vectors.
@@ -1115,6 +1153,7 @@ def build_other_tags_only_embedding(other_tags_embed: List[List[float]], dim: in
     for i in range(dim):
         combined[i] *= w_others
     return combined
+
 
 @router.get("/fast-item-outfit-search-with-style")
 def fast_item_outfit_search_with_style(
@@ -1302,6 +1341,7 @@ def fast_item_outfit_search_with_style(
         "styles": styles_output,
     }
 
+
 @router.get("/fast-item-outfit-search-with-style-using-get-n-closest")
 def fast_item_outfit_search_with_style_using_get_n_closest(
     item_id: str,
@@ -1319,7 +1359,7 @@ def fast_item_outfit_search_with_style_using_get_n_closest(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     category = item.get("category", "")
-    
+
     # 3) Ensure base_recommendations exist (same as original implementation)
     if "base_recommendations" not in item or not item["base_recommendations"]:
         clothing_type = item.get("clothing_type", "")
@@ -1365,7 +1405,7 @@ def fast_item_outfit_search_with_style_using_get_n_closest(
     for style_rec in style_recs:
         style_name = style_rec.get("style_name", "Unknown Style")
         style_tags = style_rec.get("tag_embed", {}).get("other_tags", [])
-        
+
         style_outfits = []
         for base_rec in item["base_recommendations"]:
             # Create combined clothing tag
@@ -1375,10 +1415,10 @@ def fast_item_outfit_search_with_style_using_get_n_closest(
                 material=base_rec.get("material", ""),
                 other_tags=base_rec.get("other_tags", []) + style_tags
             )
-            
+
             # Get embedding for the combined tag
             tag_embed = clothing_tag_to_embedding(combined_tag)
-            
+
             # Get closest items using the new method
             closest_items = get_n_closest(
                 tag_embed=tag_embed,
@@ -1387,7 +1427,7 @@ def fast_item_outfit_search_with_style_using_get_n_closest(
                 exclude_category=True,  # New flag for exclusion
                 gender_requirements=["M", "F", "U"]
             )
-            
+
             style_outfits.append({
                 "base_recommendation": {
                     "clothing_type": base_rec.get("clothing_type", ""),
@@ -1491,14 +1531,14 @@ def fast_item_outfit_search_with_style_stream(
         base_recommendations = item["base_recommendations"]
         if not base_recommendations:
             raise HTTPException(
-                status_code=500, 
+                status_code=500,
                 detail="No base_recommendations for this item"
             )
 
         # 4) Build combined embeds for each base recommendation
         base_recs_with_combined = []
         for rec in base_recommendations:
-            if not all(k in rec for k in ("clothing_type_embed","color_embed","material_embed","other_tags_embed")):
+            if not all(k in rec for k in ("clothing_type_embed", "color_embed", "material_embed", "other_tags_embed")):
                 continue
 
             base_combined = build_combined_embedding(
@@ -1513,10 +1553,10 @@ def fast_item_outfit_search_with_style_stream(
             )
             base_recs_with_combined.append({
                 "base_recommendation": {
-                    "clothing_type": rec.get("clothing_type",""),
-                    "color": rec.get("color",""),
-                    "material": rec.get("material",""),
-                    "other_tags": rec.get("other_tags",[])
+                    "clothing_type": rec.get("clothing_type", ""),
+                    "color": rec.get("color", ""),
+                    "material": rec.get("material", ""),
+                    "other_tags": rec.get("other_tags", [])
                 },
                 "base_combined_embed": base_combined
             })
@@ -1556,7 +1596,7 @@ def fast_item_outfit_search_with_style_stream(
 
                 # Build filter criteria
                 filter_criteria = {"category": {"$ne": category}}
-                
+
                 # Add gender filter if provided
                 if gender:
                     # Check if gender is valid
@@ -1565,7 +1605,7 @@ def fast_item_outfit_search_with_style_stream(
                             status_code=400,
                             detail="Invalid gender value. Must be 'M', 'F', or 'U'."
                         )
-                    
+
                     # If unisex is selected, include unisex items only
                     # If M is selected, show M and U items, same for F
                     if gender == 'U':
@@ -1579,7 +1619,7 @@ def fast_item_outfit_search_with_style_stream(
                             "index": "combined_embed_index",
                             "path": "combined_embed",
                             "queryVector": merged_embed,
-                            "filter": filter_criteria, 
+                            "filter": filter_criteria,
                             "limit": candidate_pool,
                             "numCandidates": candidate_pool * 10
                         }
@@ -1587,11 +1627,11 @@ def fast_item_outfit_search_with_style_stream(
                     {"$match": {"_id": {"$ne": ObjectId(item_id)}}},
                     {
                         "$project": {
-                            "_id":1, "name":1, "category":1, "price":1, 
-                            "image_url":1, "product_url":1,
-                            "clothing_type":1, "color":1, "material":1,
-                            "other_tags":1, "score":{"$meta":"vectorSearchScore"},
-                            "cropped_image_url":1, "gender":1
+                            "_id": 1, "name": 1, "category": 1, "price": 1,
+                            "image_url": 1, "product_url": 1,
+                            "clothing_type": 1, "color": 1, "material": 1,
+                            "other_tags": 1, "score": {"$meta": "vectorSearchScore"},
+                            "cropped_image_url": 1, "gender": 1
                         }
                     },
                     {"$sort": {"score": -1}},
@@ -1605,17 +1645,17 @@ def fast_item_outfit_search_with_style_stream(
                     "top_items": [
                         {
                             "id": str(doc["_id"]),
-                            "name": doc.get("name",""),
-                            "category": doc.get("category",""),
-                            "price": doc.get("price",""),
-                            "image_url": doc.get("image_url",""),
-                            "product_url": doc.get("product_url",""),
-                            "clothing_type": doc.get("clothing_type",""),
-                            "color": doc.get("color",""),
-                            "material": doc.get("material",""),
-                            "other_tags": doc.get("other_tags",[]),
+                            "name": doc.get("name", ""),
+                            "category": doc.get("category", ""),
+                            "price": doc.get("price", ""),
+                            "image_url": doc.get("image_url", ""),
+                            "product_url": doc.get("product_url", ""),
+                            "clothing_type": doc.get("clothing_type", ""),
+                            "color": doc.get("color", ""),
+                            "material": doc.get("material", ""),
+                            "other_tags": doc.get("other_tags", []),
                             "score": doc["score"],
-                            "cropped_image_url": doc.get("cropped_image_url",""),
+                            "cropped_image_url": doc.get("cropped_image_url", ""),
                             "gender": doc.get("gender", "U"),
                         }
                         for doc in top_items
@@ -1646,6 +1686,8 @@ def fast_item_outfit_search_with_style_stream(
             "X-Accel-Buffering": "no"  # Prevents Nginx buffering if you're using it
         }
     )
+
+
 @router.get("/user/gender")
 async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
     """
@@ -1655,12 +1697,12 @@ async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         user_doc = mongodb.users.find_one({"_id": user_id})
-        
+
         if not user_doc or "userdefined_profile" not in user_doc:
             return {"gender_code": None}
-        
+
         user_gender = user_doc.get("userdefined_profile", {}).get("gender", "")
-        
+
         # Map user-friendly gender values to API codes
         gender_code = None
         if user_gender == "Male":
@@ -1668,24 +1710,27 @@ async def get_user_gender(current_user: UserItem = Depends(get_current_user)):
         elif user_gender == "Female":
             gender_code = "F"
         # For "Prefer not to say" or any other value, keep as None
-        
+
         return {"gender_code": gender_code}
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while fetching user gender: {str(e)}"
         )
-    
+
+
 @router.get("/catalogue/feedback_recommendation")
-async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason:str, current_user: dict = Depends(get_current_user)):
-    #previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
+async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reason: str, current_user: dict = Depends(get_current_user)):
+    # previous_rec and starting should be the _id of the mongodb object for the previously rec clothing item and the starting item
 
     starting_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(starting_id)})
     disliked_mongodb_object = mongodb.catalogue.find_one({"_id": ObjectId(previous_rec_id)})
 
-    starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get("category"), tags=list(starting_mongodb_object.get("other_tags")))
-    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get("category"), tags=list(disliked_mongodb_object.get("other_tags")))
+    starting_item = WardrobeTag(name=starting_mongodb_object.get("name"), category=starting_mongodb_object.get(
+        "category"), tags=list(starting_mongodb_object.get("other_tags")))
+    disliked_item = WardrobeTag(name=disliked_mongodb_object.get("name"), category=disliked_mongodb_object.get(
+        "category"), tags=list(disliked_mongodb_object.get("other_tags")))
 
     # formatting profile
     profile = current_user["userdefined_profile"]
@@ -1698,29 +1743,30 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
         profile['gender'] = "F"
 
     if profile['clothing_likes'] != None:
-        if len(profile['clothing_likes'].keys())  < 5:
+        if len(profile['clothing_likes'].keys()) < 5:
             profile['clothing_likes'] = list(profile['clothing_likes'].keys())
-        #just keeping the latest 5 entries and keeping the datatype as list
+        # just keeping the latest 5 entries and keeping the datatype as list
         if len(profile['clothing_likes']) >= 5:
             profile['clothing_likes'] = list(profile['clothing_likes'].keys())[-1:-6:-1]
     else:
         profile['clothing_likes'] = []
-    
+
     if profile['clothing_dislikes'] != None:
-        exclude_names = list(profile['clothing_dislikes'].keys())[1:] #used to filter disliked items from the recommendation
+        # used to filter disliked items from the recommendation
+        exclude_names = list(profile['clothing_dislikes'].keys())[1:]
         if len(profile['clothing_dislikes']) < 5:
             dislikes = profile['clothing_dislikes']['feedback']
-        #get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
+        # get the last 5 dislikes (type:list, [category,item name, what they dislike(style/color/item), dislike reason])
         if len(profile['clothing_dislikes']) >= 5:
             dislikes = profile['clothing_dislikes']['feedback'][-1:-6:-1]
 
-        #get just the dislike reason from the list and add it to another list with just the dislike reasons
+        # get just the dislike reason from the list and add it to another list with just the dislike reasons
         dislikes_list = []
         for item in dislikes:
             dislikes_list.append(item[3])
 
         profile['clothing_dislikes'] = dislikes_list
-    
+
     else:
         profile['clothing_dislikes'] = []
 
@@ -1729,11 +1775,12 @@ async def get_feedback_recommendation(starting_id, previous_rec_id, dislike_reas
     recommended_ClothingTag = get_user_feedback_recommendation(starting_item, disliked_item, dislike_reason, profile)
 
     clothing_tag_embedded = clothing_tag_to_embedding(recommended_ClothingTag)
-    rec = list(get_n_closest(clothing_tag_embedded,1,exlcude_names=exclude_names))[0]
+    rec = list(get_n_closest(clothing_tag_embedded, 1, exclude_names=exclude_names))[0]
     rec['_id'] = str(rec['_id'])
 
-    #outputs the mongodb object for the clothing item from the catalogue as a dictionary.
+    # outputs the mongodb object for the clothing item from the catalogue as a dictionary.
     return rec
+
 
 @router.post("/catalogue/track-click/{item_id}")
 async def track_product_click(item_id: str, current_user: UserItem = Depends(get_current_user)):
@@ -1745,19 +1792,19 @@ async def track_product_click(item_id: str, current_user: UserItem = Depends(get
             object_id = ObjectId(item_id)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid item ID format")
-        
+
         # Update document with atomic increment of click_count
         # If field doesn't exist yet, it will be created with value 1
         result = mongodb.catalogue.update_one(
             {"_id": object_id},
             {"$inc": {"click_count": 1}}
         )
-        
+
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Product not found")
-        
+
         return {"success": True, "message": "Click tracked successfully"}
-        
+
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -1766,9 +1813,10 @@ async def track_product_click(item_id: str, current_user: UserItem = Depends(get
             detail=f"Error tracking product click: {str(e)}"
         )
 
+
 @router.get("/shop/text-search")
 async def text_search(
-    query: str, 
+    query: str,
     gender: Optional[str] = Query(None, description="Filter by gender (M, F, or U)"),
     limit: int = Query(200, description="Maximum number of results to return"),
     current_user: UserItem = Depends(get_current_user)
@@ -1780,7 +1828,7 @@ async def text_search(
     try:
         # Create the pipeline for Atlas Search
         pipeline = []
-        
+
         # Only add $search stage if query is provided
         if query and query.strip():
             # Add Atlas Search stage
@@ -1796,14 +1844,14 @@ async def text_search(
                 }
             }
             pipeline.append(search_stage)
-            
+
             # Add score metadata to results
             pipeline.append({
                 "$addFields": {
                     "score": {"$meta": "searchScore"}
                 }
             })
-        
+
         # Add gender filter if provided
         match_criteria = {}
         if gender:
@@ -1812,18 +1860,18 @@ async def text_search(
                     status_code=400,
                     detail="Invalid gender value. Must be 'M', 'F', or 'U'."
                 )
-            
+
             if gender == 'U':
                 # Only show unisex items
                 match_criteria["gender"] = 'U'
             else:
                 # Show items that match gender OR are unisex
                 match_criteria["$or"] = [{"gender": gender}, {"gender": "U"}]
-        
+
         # Add $match stage if we have gender or non-search case
         if match_criteria or not query or not query.strip():
             pipeline.append({"$match": match_criteria})
-        
+
         # Project only the fields we need
         pipeline.append({
             "$project": {
@@ -1840,20 +1888,20 @@ async def text_search(
                 "score": 1
             }
         })
-        
+
         # Add sorting - by search score for search queries, or default sort for non-search
         if query and query.strip():
             pipeline.append({"$sort": {"score": -1}})
         else:
             # For non-search queries, sort by something reasonable like name
             pipeline.append({"$sort": {"name": 1}})
-        
+
         # Add limit
         pipeline.append({"$limit": limit})
-        
+
         # Execute the aggregation pipeline
         cursor = mongodb.catalogue.aggregate(pipeline)
-        
+
         # Process results
         results = []
         for item in cursor:
@@ -1871,15 +1919,15 @@ async def text_search(
                 "gender": item.get("gender", "U"),
                 "score": item.get("score", 0) if query and query.strip() else None
             })
-        
+
         # Debug log the filter criteria and result count
         print(f"Search query: '{query}'")
         print(f"Gender filter: {gender}")
         print(f"Match criteria: {match_criteria}")
         print(f"Found {len(results)} results")
-        
+
         return results
-    
+
     except Exception as e:
         print(f"Error in text_search: {str(e)}")
         raise HTTPException(
