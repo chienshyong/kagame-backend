@@ -54,6 +54,59 @@ async def login_with_google(request: Request):
     return {"access_token": token, "token_type": "bearer"}
 
 
+@router.post("/applelogin")
+async def login_with_apple(request: Request):
+    try:
+        data = await request.json()
+        id_token = data.get("id_token")
+        if not id_token:
+            raise HTTPException(status_code=400, detail="Missing id_token in request")
+
+        try:
+            # Apple sign-in tokens are verified through Firebase just like Google
+            decoded_token = auth.verify_id_token(id_token)
+            
+            # Get email from decoded token
+            email = decoded_token.get("email")
+            
+            # If email is not available, use the uid/sub as a unique identifier
+            if not email:
+                email = decoded_token.get("uid") or decoded_token.get("sub")
+                
+            # Sometimes Apple returns email in firebase_provider_data
+            if not email and "firebase" in decoded_token and "identities" in decoded_token["firebase"]:
+                identities = decoded_token["firebase"]["identities"]
+                if "email" in identities and identities["email"]:
+                    email = identities["email"][0]
+            
+            # Last resort - if still no email, use uid as identifier
+            if not email:
+                email = f"apple_user_{decoded_token.get('uid', 'unknown')}"
+                
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Apple token: {str(e)}")
+
+        # Check if the user exists in MongoDB
+        user = mongodb.users.find_one({"username": email})
+        
+        if not user:
+            # Create user if not exists
+            user = {
+                "username": email,
+                "password": None,  # No password, since it's Apple-authenticated
+            }
+            mongodb.users.insert_one(user)
+
+        # Issue JWT compatible with existing auth logic
+        token = create_access_token({"username": email})
+        return {"access_token": token, "token_type": "bearer"}
+        
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Server error processing Apple login")
+
+
 @router.delete("/deleteuser")
 async def delete_user(current_user: mongodb.UserItem = Depends(get_current_user)):
     user_result = mongodb.users.delete_one({"_id": current_user["_id"]})
