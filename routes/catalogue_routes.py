@@ -27,9 +27,20 @@ import json
 from datetime import datetime
 import time
 import random
+from services.image import store_blob, get_blob_url, LONG_EXPIRY
 
 router = APIRouter()
 
+def merge_vectors(vecA: List[float], vecB: List[float]) -> List[float]:
+    if not vecA or not vecB: # Handle empty vectors gracefully
+        return vecA or vecB or []
+    if len(vecA) != len(vecB):
+        # You might want to log this error instead of raising for production robustness
+        print(f"Warning: Vector dimensions do not match during merge. Len A: {len(vecA)}, Len B: {len(vecB)}. Returning Vec A.")
+        # Decide on fallback: return vecA, vecB, or raise error
+        return vecA # Or handle more gracefully depending on requirements
+        # raise ValueError("Vector dimensions do not match")
+    return [a + b for a, b in zip(vecA, vecB)]
 
 @router.get("/shop/items")
 def get_items_by_retailer(
@@ -1162,10 +1173,6 @@ def fast_item_outfit_search_with_style(
     top_k: int = 10,
     candidate_pool: int = 50
 ):
-    def merge_vectors(vecA: List[float], vecB: List[float]) -> List[float]:
-        if len(vecA) != len(vecB):
-            raise ValueError("Vector dimensions do not match")
-        return [a + b for a, b in zip(vecA, vecB)]
 
     # STEP 1) Validate item_id
     try:
@@ -1934,3 +1941,229 @@ async def text_search(
             status_code=500,
             detail=f"Error performing search: {str(e)}"
         )
+
+@router.get("/catalogue/matching-wardrobe-items/{item_id}")
+async def get_matching_wardrobe_items(
+    item_id: str,
+    current_user: UserItem = Depends(get_current_user),
+    top_k: int = 3,
+    candidate_pool: int = 30,
+):
+    start_time = time.time()
+    print(f"Starting matching wardrobe items search for item: {item_id}")
+
+    # STEP 1: Validate item_id and Fetch Shop Item
+    try:
+        object_id = ObjectId(item_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid shop item ID format")
+
+    shop_item = mongodb.catalogue.find_one({"_id": object_id})
+    if not shop_item:
+        raise HTTPException(status_code=404, detail="Shop item not found")
+    shop_item_category = shop_item.get("category", "")
+    print(f"Shop item '{shop_item.get('name')}' fetched. Category: {shop_item_category}")
+
+    # STEP 2: Ensure Base Recommendations Exist on Shop Item
+    if "base_recommendations" not in shop_item or not shop_item["base_recommendations"]:
+        print(f"Generating base recommendations for item: {item_id}")
+        # Logic copied from fast-item-outfit-search-with-style-stream
+        clothing_type = shop_item.get("clothing_type", "")
+        color = shop_item.get("color", "")
+        material = shop_item.get("material", "")
+        tags = shop_item.get("other_tags", [])
+
+        wtag = WardrobeTag(
+            name=shop_item.get("name", ""),
+            category=shop_item_category, # Use fetched category
+            tags=[t for t in [clothing_type, color, material] if t] + tags # Filter out empty strings
+        )
+
+        try:
+            base_recs_tags = generate_base_catalogue_recommendation(wtag)
+            updated_recs_data = []
+            for rec_tag in base_recs_tags:
+                embeds = clothing_tag_to_embedding(rec_tag)
+                rec_dict = rec_tag.dict()
+                rec_dict.update({
+                    "clothing_type_embed": embeds.clothing_type_embed,
+                    "color_embed": embeds.color_embed,
+                    "material_embed": embeds.material_embed,
+                    "other_tags_embed": embeds.other_tags_embed
+                })
+                updated_recs_data.append(rec_dict)
+
+            mongodb.catalogue.update_one(
+                {"_id": object_id},
+                {"$set": {"base_recommendations": updated_recs_data}}
+            )
+            shop_item["base_recommendations"] = updated_recs_data
+            print(f"Base recommendations generated and saved for item: {item_id}")
+        except Exception as e:
+             print(f"Error generating/embedding base recommendations for {item_id}: {e}")
+             raise HTTPException(status_code=500, detail=f"Could not generate base recommendations: {e}")
+
+    base_recommendations = shop_item.get("base_recommendations", [])
+    if not base_recommendations:
+         # This should ideally not happen after the generation step, but check anyway
+        raise HTTPException(status_code=500, detail="Failed to obtain base recommendations for the shop item.")
+    
+    # STEP 3: Build Combined Embeddings for Base Recs
+    base_recs_with_combined = []
+    default_dim = None
+    print("Building combined embeddings for base recommendations...")
+    for rec in base_recommendations:
+        required = ["clothing_type_embed", "color_embed", "material_embed", "other_tags_embed"]
+        if not all(k in rec and rec[k] for k in required):
+            print(f"Skipping base rec due to missing embeds: {rec.get('clothing_type')}")
+            continue
+        try:
+            base_combined = build_combined_embedding( # Weights from stream example
+                rec.get("clothing_type_embed", []), rec.get("color_embed", []),
+                rec.get("material_embed", []), rec.get("other_tags_embed", []),
+                w_ctype=0.3, w_color=0.2, w_material=0.2, w_others=0.4
+            )
+            if not default_dim and base_combined: default_dim = len(base_combined)
+            base_recs_with_combined.append({
+                "base_recommendation": {k: rec.get(k) for k in ["clothing_type", "color", "material", "other_tags"]},
+                "base_combined_embed": base_combined
+            })
+        except Exception as e:
+            print(f"Error building combined embed for base rec: {e}")
+
+    if not base_recs_with_combined or not default_dim:
+        raise HTTPException(status_code=500, detail="Could not process base recommendations or determine dimension.")
+    print(f"Built combined embeddings for {len(base_recs_with_combined)} base recs. Dim: {default_dim}")
+
+    # STEP 4: Fetch User and Style Recommendations
+    user_doc = mongodb.users.find_one({"_id": current_user["_id"]})
+    if not user_doc: raise HTTPException(status_code=404, detail="User not found.")
+    style_recs = user_doc.get("style_recommendations", [])
+    if not style_recs: raise HTTPException(status_code=400, detail="User has no style recommendations.")
+    print(f"Fetched {len(style_recs)} style recommendations for user.")
+
+    # STEP 5: Iterate Through Styles, Base Recs, and Search Wardrobe
+    styles_output = []
+    total_searches = 0
+    total_search_time = 0
+
+    for style_idx, style_rec in enumerate(style_recs):
+        style_name = style_rec.get("style_name", f"Style {style_idx+1}")
+        print(f"\nProcessing Style: {style_name} ({style_idx+1}/{len(style_recs)})")
+        embed_dict = style_rec.get("tag_embed", {})
+        other_tags_embed = embed_dict.get("other_tags_embed", [])
+
+        try:
+            style_only_embed = build_other_tags_only_embedding(
+                other_tags_embed, default_dim, w_others=0.4
+            )
+        except Exception as e:
+             print(f"Error building style embedding for {style_name}: {e}. Skipping.")
+             continue
+
+        style_outfits = []
+        for base_idx, base_obj in enumerate(base_recs_with_combined):
+            base_rec_details = base_obj["base_recommendation"]
+            base_embed = base_obj["base_combined_embed"]
+            merged_embed = merge_vectors(base_embed, style_only_embed)
+
+            if not merged_embed: continue # Skip if merge failed
+
+            search_start_time = time.time()
+            total_searches += 1
+
+            wardrobe_filter = { "user_id": current_user["_id"] }
+            if shop_item_category:
+                 wardrobe_filter["category"] = {"$ne": shop_item_category}
+
+            # ***** CORRECTED VECTOR SEARCH *****
+            wardrobe_pipeline = [
+                {
+                    "$vectorSearch": {
+                        "index": "wardrobe_vector_index", # <-- VERIFY THIS NAME
+                        "path": "embedding",              # <-- USE CORRECT PATH
+                        "queryVector": merged_embed,
+                        "filter": wardrobe_filter,
+                        "limit": candidate_pool,
+                        "numCandidates": candidate_pool * 10
+                    }
+                },
+                { # Project needed fields, exclude embedding
+                    "$project": {
+                        "_id": 1, "name": 1, "category": 1, "tags": 1,
+                        "image_name": 1, 
+                        "score": {"$meta": "vectorSearchScore"}
+                    }
+                },
+                {"$sort": {"score": -1}},
+                {"$limit": top_k}
+            ]
+            # ***** END CORRECTION *****
+
+            try:
+                cursor = mongodb.wardrobe.aggregate(wardrobe_pipeline)
+                top_wardrobe_items = list(cursor)
+                search_duration = time.time() - search_start_time
+                total_search_time += search_duration
+                print(f"  - Searched for base rec '{base_rec_details.get('clothing_type')}': Found {len(top_wardrobe_items)} wardrobe items in {search_duration:.3f}s")
+
+                formatted_items = []
+                for doc in top_wardrobe_items:
+                    image_name = doc.get('image_name')
+                    image_url = None
+                    if image_name:
+                        try:
+                            # Use expiry=15 (minutes) as specified
+                            image_url = get_blob_url(image_name, LONG_EXPIRY)
+                        except Exception as blob_err:
+                            print(f"Error getting blob URL for {image_name}: {blob_err}")
+                            # Decide: return None, or a placeholder URL?
+
+                    formatted_items.append({
+                        "id": str(doc["_id"]),
+                        "name": doc.get("name", ""),
+                        "category": doc.get("category", ""),
+                        "tags": doc.get("tags", []), # Wardrobe items have 'tags' field
+                        "image_url": image_url,      # Use the generated SAS URL
+                        "image_name": image_name,    # Keep original name if needed
+                        "score": doc.get("score", 0)
+                    })
+
+                style_outfits.append({
+                    "base_recommendation": base_rec_details,
+                    "matching_wardrobe_items": formatted_items
+                })
+            except Exception as e:
+                 print(f"Error during wardrobe vector search aggregate: {e}")
+                 style_outfits.append({
+                     "base_recommendation": base_rec_details,
+                     "matching_wardrobe_items": [],
+                     "error": f"Search failed: {e}"
+                 })
+
+        styles_output.append({
+            "style_name": style_name,
+            "style_outfits": style_outfits
+        })
+
+    end_time = time.time()
+    total_duration = end_time - start_time
+    avg_search_time = total_search_time / total_searches if total_searches > 0 else 0
+    print(f"\nFinished matching wardrobe items search. Total time: {total_duration:.3f}s")
+    print(f"Performed {total_searches} vector searches. Avg search time: {avg_search_time:.3f}s")
+
+    # STEP 6: Return Final JSON Response
+    shop_item_response_data = {
+            "id": item_id,
+            "name": shop_item.get("name", ""),
+            "category": shop_item_category,
+            "image_url": shop_item.get("image_url", ""), # Use direct URL for shop item
+            "product_url": shop_item.get("product_url", ""),
+    }
+    # Add _is_shop_item flag for frontend clarity, maybe not needed if frontend handles based on structure
+    # shop_item_response_data["_is_shop_item"] = True
+
+    return {
+        "shop_item": shop_item_response_data,
+        "matching_styles": styles_output
+    }
