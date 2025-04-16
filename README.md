@@ -84,11 +84,59 @@ uvicorn main:app
 
 ### Project Structure
 - `/routes`: API endpoints organized by functionality
-  - Use `auth.py` for endpoint protection and user identification
-- `kagameDB.py`: Database connection management
-- `services/image.py`: Image handling service
-  - Currently stores images as binary data in MongoDB
-  - Designed for easy migration to file system storage
+  - `auth.py`: Authentication and authorization endpoints
+    - User login and registration
+    - Token management and validation
+    - Protected route middleware
+  - `catalogue_routes.py`: Fashion catalogue management
+    - Item categorization and tagging
+    - Search and filtering
+    - Style recommendations
+  - `image_routes.py`: Image processing endpoints
+    - Image upload and storage
+    - Background removal
+    - Image analysis and tagging
+  - `profile_routes.py`: User profile management
+    - Profile creation and updates
+    - Style preferences
+    - User settings
+  - `user_routes.py`: User account management
+    - Account creation and deletion
+    - Password management
+    - User preferences
+  - `wardrobe_routes.py`: Virtual wardrobe management
+    - Adding/removing items
+    - Outfit creation
+    - Wardrobe organization
+
+- `services`: Core business logic and external service integrations
+  - `image.py`: Image handling service
+    - Image processing and optimization
+    - Binary data conversion for MongoDB storage
+    - File system abstraction layer
+  - `mongodb.py`: Database operations
+    - Connection management
+    - CRUD operations
+    - Query optimization
+  - `openai.py`: AI integration service
+    - Style analysis
+    - Fashion recommendations
+    - Natural language processing
+  - `remove_bg.py`: Background removal service
+    - Integration with background removal API
+    - Image preprocessing
+  - `user.py`: User management service
+    - User data validation
+    - Profile management
+    - Authentication logic
+  - `googlecloud.py`: Google Cloud integration
+    - Storage bucket management
+    - File upload/download
+    - Cloud service authentication
+  - `metadata.py`: Metadata management
+    - Fashion item tagging
+    - Style attribute extraction
+    - Data enrichment
 
 ## API Documentation
 API documentation is available at `/docs` when running the server (Swagger UI).
