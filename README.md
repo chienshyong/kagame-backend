@@ -1,5 +1,5 @@
 # Kagame Backend
-A backend service for Kagame, a fashion-focused application that helps users reflect their style.
+Backend service for Kagame built using FastAPI.
 
 ## Table of Contents
 - [Kagame Backend](#kagame-backend)
