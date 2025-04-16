@@ -1,49 +1,147 @@
 # Kagame Backend
-Reflect your style
+A backend service for Kagame, a fashion-focused application that helps users reflect their style.
 
-## Building and running
-Google Cloud Storage uses Application Default Credentials, not API keys. This means you're required to install **Google Cloud SDK Shell**. Skip this section you already have it. Otherwise, here are the installation steps:
-- Install gcloud CLI https://cloud.google.com/sdk/docs/install
-- Then in terminal do:
-- `gcloud init`
-- `gcloud auth application-default login`
-- Your browser should open. Login with Kagame's gmail account. When successful, you should get something like:
-- `Credentials saved to file: [some\local\filepath\gcloud\application_default_credentials.json]`
+## Table of Contents
+- [Kagame Backend](#kagame-backend)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+    - [1. Google Cloud SDK Setup](#1-google-cloud-sdk-setup)
+    - [2. Python Environment Setup](#2-python-environment-setup)
+  - [Configuration](#configuration)
+  - [Development](#development)
+    - [Running the Server](#running-the-server)
+    - [Project Structure](#project-structure)
+  - [API Documentation](#api-documentation)
+  - [Architecture](#architecture)
+  - [Deployment](#deployment)
+    - [RunPod Deployment](#runpod-deployment)
+  - [Troubleshooting](#troubleshooting)
+  - [Contributing](#contributing)
+  - [Security](#security)
 
-Use Python virtual environment to install the requirements:
-- `python3 -m venv .venv`
-- `.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Unix/maxOS)
-- `pip install -r "requirements.txt"` (Be patient, it'll take some time)
-  
-Set API Keys variable values and other secrets:
-- Make a copy of the `secretstuff-example` folder and rename it to `secretstuff`
-- Populate the secrets with content in our groupchat. If everything goes right, changes should be ignored so keys.py is never pushed 
+## Overview
+Kagame Backend provides the server-side functionality for the Kagame application, handling:
+- User authentication and authorization
+- Image processing and storage
+- Database operations
+- API endpoints for client applications
 
-Test if everything works:
-- Run `fashion_clip_test.ipynb`, `db_test.ipynb` and `gcloud_test.ipynb`. See if errors popup.
-TODO(maybe?): Combine all the test Python Notebook into one file
+## Prerequisites
+- Python 3.8 or higher
+- Google Cloud SDK
+- Docker (for deployment)
+- MongoDB (for database operations)
 
-Run backend for development with:
-- `uvicorn main:app --reload`
-- `uvicorn main:app` If you don't want server to auto-reload everytime you make a change.
+## Installation
 
-## Routes
-Include all routes in the `/routes` folder, separated by functionality. Include `auth.py` in almost all routes to use for protecting endpoints and identifying the user with `get_current_user()`, which examines the http headers for an auth token.
+### 1. Google Cloud SDK Setup
+Google Cloud Storage uses Application Default Credentials, not API keys. Follow these steps if you haven't installed Google Cloud SDK:
 
-## Database connection
-`kagameDB.py` connects to the database, and can be used from anywhere by importing it.
+1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install
+2. Initialize and authenticate:
+   ```bash
+   gcloud init
+   gcloud auth application-default login
+   ```
+3. Login with Kagame's gmail account when prompted
+4. Verify credentials are saved (you should see a message like):
+   ```
+   Credentials saved to file: [some\local\filepath\gcloud\application_default_credentials.json]
+   ```
 
-Store and get images with `services/image.py`. For now, it converts the image into binary data that can be stored in mongo. When we change to a file system just need to change this service.
+### 2. Python Environment Setup
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Unix/macOS
+
+# Install dependencies
+pip install -r "requirements.txt"
+```
+
+## Configuration
+1. Create a `secretstuff` directory:
+   ```bash
+   cp -r secretstuff-example secretstuff
+   ```
+2. Populate secretstuff with the relevant files from the team chat
+
+## Development
+
+### Running the Server
+Development mode (with auto-reload):
+```bash
+uvicorn main:app --reload
+```
+
+Production mode:
+```bash
+uvicorn main:app
+```
+
+### Project Structure
+- `/routes`: API endpoints organized by functionality
+  - Use `auth.py` for endpoint protection and user identification
+- `kagameDB.py`: Database connection management
+- `services/image.py`: Image handling service
+  - Currently stores images as binary data in MongoDB
+  - Designed for easy migration to file system storage
+
+## API Documentation
+API documentation is available at `/docs` when running the server (Swagger UI).
+
+Key endpoints:
+- Authentication endpoints (see `routes/auth.py`)
+- Image processing endpoints
+- User management endpoints
+
+## Architecture
+The backend follows a modular architecture:
+- FastAPI for the web framework
+- MongoDB for data storage
+- Google Cloud Storage for file storage
+- JWT for authentication
 
 ## Deployment
-Deployment to runpod - Build docker image with:
-- `docker build -t kagame-backend .`
-- `docker run -d -p 80:80 kagame-backend`
+### RunPod Deployment
+1. Build Docker image:
+   ```bash
+   docker build -t kagame-backend .
+   docker run -d -p 80:80 kagame-backend
+   ```
 
-Push to docker hub:
-- `docker login -u kagameteam`
-- Password: see in chat
-- `docker tag kagame-backend kagameteam/kagame-backend:latest`
-- `docker push kagameteam/kagame-backend:latest`
+2. Push to Docker Hub:
+   ```bash
+   docker login -u kagameteam
+   docker tag kagame-backend kagameteam/kagame-backend:latest
+   docker push kagameteam/kagame-backend:latest
+   ```
 
-Use kagameteam/kagame-backend as the image on the runpod container.
+Use `kagameteam/kagame-backend` as the image on RunPod container.
+
+## Troubleshooting
+Common issues and solutions:
+1. Google Cloud authentication issues
+   - Verify credentials are properly set up
+   - Check if `gcloud auth application-default login` completed successfully
+2. Database connection issues
+   - Verify MongoDB is running
+   - Check connection string in configuration
+3. Image processing errors
+   - Ensure all required dependencies are installed
+   - Verify Google Cloud Storage permissions
+
+## Contributing
+1. Create a new branch for your feature
+2. Follow the existing code style
+3. Add tests for new functionality
+4. Submit a pull request with a clear description of changes
+
+## Security
+- Never commit sensitive information or API keys
+- Always use environment variables for secrets
+- Keep dependencies updated
+- Follow security best practices for authentication
