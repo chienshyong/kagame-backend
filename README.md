@@ -45,7 +45,7 @@ Google Cloud Storage uses Application Default Credentials, not API keys. Follow 
    gcloud init
    gcloud auth application-default login
    ```
-3. Login with Kagame's gmail account when prompted
+3. Login with Kagame's or a developer's gmail account when prompted
 4. Verify credentials are saved (you should see a message like):
    ```
    Credentials saved to file: [some\local\filepath\gcloud\application_default_credentials.json]
@@ -115,28 +115,17 @@ uvicorn main:app
     - Binary data conversion for MongoDB storage
     - File system abstraction layer
   - `mongodb.py`: Database operations
-    - Connection management
-    - CRUD operations
-    - Query optimization
-  - `openai.py`: AI integration service
+  - `openai.py`: OpenAI integration service
     - Style analysis
     - Fashion recommendations
-    - Natural language processing
   - `remove_bg.py`: Background removal service
-    - Integration with background removal API
-    - Image preprocessing
   - `user.py`: User management service
-    - User data validation
-    - Profile management
     - Authentication logic
   - `googlecloud.py`: Google Cloud integration
     - Storage bucket management
     - File upload/download
     - Cloud service authentication
   - `metadata.py`: Metadata management
-    - Fashion item tagging
-    - Style attribute extraction
-    - Data enrichment
 
 ## API Documentation
 API documentation is available at `/docs` when running the server (Swagger UI).
@@ -178,9 +167,6 @@ Common issues and solutions:
 2. Database connection issues
    - Verify MongoDB is running
    - Check connection string in configuration
-3. Image processing errors
-   - Ensure all required dependencies are installed
-   - Verify Google Cloud Storage permissions
 
 ## Contributing
 1. Create a new branch for your feature
@@ -188,6 +174,4 @@ Common issues and solutions:
 
 ## Security
 - Never commit sensitive information or API keys
-- Always use environment variables for secrets
-- Keep dependencies updated
 - Never commit or push irrelevant files
