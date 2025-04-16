@@ -184,12 +184,10 @@ Common issues and solutions:
 
 ## Contributing
 1. Create a new branch for your feature
-2. Follow the existing code style
-3. Add tests for new functionality
-4. Submit a pull request with a clear description of changes
+2. Submit a pull request with a clear description of changes
 
 ## Security
 - Never commit sensitive information or API keys
 - Always use environment variables for secrets
 - Keep dependencies updated
-- Follow security best practices for authentication
+- Never commit or push irrelevant files
